@@ -1,0 +1,121 @@
+<!DOCYTPE html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Ura | Homepage</title>
+
+    <link href="styles/bootstrap.min.css" rel="stylesheet" />
+    <link href="styles/global.css" rel="stylesheet" />
+    <link href="favicon.ico" rel="icon" type="image/x-icon" />
+</head>
+<body data-bs-theme="dark">
+    <div class="main-content w-100 h-100" align="center">
+        <div id="loading-content">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half mb-2" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
+            </svg>
+            <br/>
+            <h5 class="shimmer-fast mt-2">Loading…</h5>
+        </div>
+
+        <div class="d-none col-lg-6" id="actual-content">
+            <h1 class="display-4 shimmer">The decentralized bank you'll ever need</h1>
+            <p class="text-muted">Empowered by underground pioneers.</p>
+
+            <br/><br/>
+            <div class="row col-lg-6 mx-4">
+                <div class="col-6">
+                    <button class="btn btn-outline-primary w-100" aria-controls="#login-offcanvas" data-bs-toggle="offcanvas" data-bs-target="#login-offcanvas">Log In</button>
+                </div>
+
+                <div class="col-6">
+                    <button class="btn btn-outline-primary w-100" aria-controls="#signup-offcanvas" data-bs-toggle="offcanvas" data-bs-target="#signup-offcanvas">Sign Up</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="offcanvas offcanvas-start offcanvas-top w-100 h-100 border-0 shadow-none main-content" tabindex="-1" id="login-offcanvas" aria-labelledby="login-offcanvas-label">
+        <br/><br/><br/>
+        <br/><br/><br/>
+        <br/>
+
+        <div class="desktop-only">
+            <br/><br/>
+        </div>
+
+        <div class="offcanvas-header col-lg-4 col-12">
+            <h5 class="offcanvas-title shimmer" id="login-offcanvas-label">Log-in</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+
+        <div class="offcanvas-body col-lg-4 col-12">
+            <hr class="mt-0"/>
+
+            <label class="form-control-label" for="login-username">Username</label>
+            <input type="text" class="form-control bg-primary text-white border mt-2" placeholder="Username" id="login-username" autocomplete="off" />
+
+            <label class="form-control-label mt-4" for="login-password">Password</label>
+            <input type="password" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Password" id="login-password" autocomplete="off" />    
+
+            <p class="text-danger d-none" id="login-error"></p>
+            <button class="btn btn-outline-primary w-100" id="login-btn">
+                <span id="login-loading" class="d-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
+                    </svg>
+                </span>
+                <span id="login-text" class="d-block">Log-in</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="offcanvas offcanvas-start offcanvas-top w-100 h-100 border-0 shadow-none main-content" tabindex="-1" id="signup-offcanvas" aria-labelledby="signup-offcanvas-label">
+        <br/><br/><br/><br/>
+
+        <div class="desktop-only">
+            <br/><br/>
+        </div>
+
+        <div class="offcanvas-header col-lg-4 col-12">
+            <h5 class="offcanvas-title shimmer" id="signup-offcanvas-label">Sign-up</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+
+        <div class="offcanvas-body col-lg-4 col-12">
+            <hr class="mt-0"/>
+
+            <label class="form-control-label" for="signup-username">Username</label>
+            <input type="text" class="form-control bg-primary text-white border mt-2" placeholder="Username" id="signup-username" autocomplete="off" />
+
+            <label class="form-control-label mt-4" for="signup-email">Email</label>
+            <input type="email" class="form-control bg-primary text-white border mt-2" placeholder="Email" id="signup-email" autocomplete="off" />
+
+            <label class="form-control-label mt-4" for="signup-password">Password</label>
+            <input type="password" class="form-control bg-primary text-white border mt-2" placeholder="Password" id="signup-password" autocomplete="off" />    
+
+            <label class="form-control-label mt-4" for="signup-password-confirm">Confirm Password</label>
+            <input type="password" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Confirm Password" id="signup-password-confirm" autocomplete="off" />    
+
+            <p class="text-danger d-none" id="signup-error"></p>
+            <p class="text-info d-none" id="signup-success"></p>
+
+            <button class="btn btn-outline-primary w-100" id="signup-btn">
+                <span id="login-loading" class="d-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
+                    </svg>
+                </span>
+                <span id="login-text" class="d-block">Sign-up</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="scripts/jquery.min.js"></script>
+    <script src="scripts/bootstrap.bundle.min.js"></script>
+    <script src="scripts/wasm_exec.js"></script>
+    <script src="scripts/wasm_helper.js"></script>
+    <script>loadProgram("index")</script>
+</body>
+</html>
