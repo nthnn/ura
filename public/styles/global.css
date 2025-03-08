@@ -1,0 +1,110 @@
+* {
+    -webkit-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    color: var(--bs-white) !important;
+    border-color: var(--bs-gray) !important;
+    border-width: 1px !important;
+    outline: none !important;
+}
+
+.nav-item {
+    margin: 0px !important;
+}
+
+.nav-link {
+    transition: all 0.3s ease-in-out !important;
+}
+
+.nav-link svg {
+    fill: currentColor;
+}
+
+.nav-link[aria-selected="true"] svg {
+    fill: var(--bs-dark) !important;
+}
+
+.nav-link[aria-selected="true"] .nav-text {
+    color: var(--bs-dark) !important;
+}
+
+.nav-link[aria-selected="true"] {
+    background-color: var(--bs-white) !important;
+    border-radius: 120px !important;
+}
+
+.ura-card {
+    background: linear-gradient(to right, #1a1a1a, #262626);
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
+.offcanvas {
+    -webkit-backdrop-filter: blur(6px) !important;
+    will-change: backdrop-filter !important;
+    background-color: rgba(26, 26, 26, 0.5) !important;
+    backdrop-filter: blur(6px) !important;
+    transition: transform .8s cubic-bezier(.16, .68, .43, .99) ease-in-out;
+}
+
+.shimmer {
+    -webkit-mask: linear-gradient(-60deg,#000 30%,#0005,#000 70%) right/300% 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 5s infinite;
+}
+
+.shimmer-fast {
+    -webkit-mask: linear-gradient(-60deg,#000 30%,#0005,#000 70%) right/300% 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 2s infinite;
+}
+
+.animate-slide {
+    animation: slideInDown 0.5s ease forwards;
+}
+
+.bi-circle-half {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        -webkit-mask-position:left;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0.5;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media only screen and (max-width: 771px) {
+    .desktop-only { display: none; }
+
+    .mobile-only { display: block; }
+}
+
+@media only screen and (min-width: 770px) {
+    .mobile-only { display: none; }
+}
