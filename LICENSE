@@ -1,0 +1,164 @@
+ONION PUBLIC LICENSE 1.0
+Last Updated: 08 March, 2025
+
+I. Preamble
+
+The Onion Public License 1.0 ("OPL") is intended to serve as
+a comprehensive, open source software license specifically
+addressing deployment in deepweb (onion network) environments.
+The primary goals of the OPL are to:
+
+1. Grant broad rights to use, modify, and distribute
+   the licensed software.
+2. Protect the legal interests of the developers and
+   the enterprise deploying the software.
+3. Address potential legal complexities and risks
+   associated with deepweb deployment.
+4. By exercising any rights granted under this License,
+   you agree to be bound by its terms and conditions.
+5. Encourage collaboration and open innovation while
+   clarifying responsibilities regarding compliance with
+   applicable laws and regulations.
+
+II. Definitions
+
+For the purposes of this License:
+
+1. "Software" means any work covered by this License,
+   including source code, object code, and any modifications
+   or derivative works.
+2. "You" (or "Licensee") means any individual or entity
+   that uses, reproduces, modifies, or distributes the
+   Software.
+3. "Developers" means the original authors and subsequent
+   contributors of the Software.
+4. "Deploying Enterprise" means any organization that deploys
+   the Software, including on deepweb or onion network
+   environments.
+5. "Deepweb Deployment" refers to the installation,
+   configuration, and operation of the Software on networks
+   or systems not indexed by standard search engines,
+   including but not limited to onion routing (Tor) networks.
+6. "Derivative Works" means works based upon or derived
+   from the Software, including modifications and enhancements.
+
+III. Grant of License
+
+Subject to the terms and conditions of this License, each
+Contributor hereby grants to You a perpetual, worldwide,
+non-exclusive, royalty-free, irrevocable (except as stated
+in Section 8) license to:
+
+1. Use, reproduce, and display the Software in any medium,
+   including for deployment on deepweb environments. Modify,
+   adapt, and create derivative works based on the Software.
+2. Distribute the Software or any derivative works, under
+   the same terms as this License.
+3. Sublicense these rights to third parties provided that such
+   sublicensees are bound by the terms of this License.
+
+IV. Conditions and Limitations
+
+You must comply with all of the following conditions when
+exercising the rights granted in Section 3:
+
+1. Attribution and Notices - You must retain all copyright
+   and license notices in all copies or substantial portions
+   of the Software.
+2. Distribution of Derivative Works - If you distribute
+   derivative works, you must do so under the same terms of
+   this License (i.e., any derivative work must be licensed
+   as a whole under the OPL).
+3. Deepweb Deployment - When deploying the Software in deepweb
+   environments, You are solely responsible for ensuring
+   compliance with all applicable laws and regulations. You
+   agree that the Developers and Deploying Enterprise shall
+   not be liable for any legal consequences arising from such
+   deployment.
+4. Modifications - Any modifications or enhancements made to
+   the Software that are distributed must be clearly marked
+   as having been modified and must retain a reference to
+   this License.
+
+V. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. NO ADVICE OR INFORMATION, WHETHER ORAL OR WRITTEN,
+OBTAINED BY YOU FROM THE DEVELOPERS OR THE DEPLOYING ENTERPRISE
+SHALL CREATE ANY WARRANTY REGARDING THE SOFTWARE.
+
+VI. Limitation of Liability
+
+IN NO EVENT SHALL THE DEVELOPERS OR THE DEPLOYING ENTERPRISE
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+VII. Indemnification
+
+You agree to indemnify, defend, and hold harmless the
+Developers and the Deploying Enterprise from and against
+any and all claims, liabilities, damages, losses, and
+expenses (including reasonable attorneys' fees) arising
+out of or in any way connected with your use, modification,
+or distribution of the Software, including any claims
+arising from your deepweb deployment.
+
+VIII. Termination
+
+This License and the rights granted hereunder will terminate
+automatically if You fail to comply with any of the terms and
+conditions described herein. Upon termination, You must cease
+all use, distribution, and modification of the Software.
+
+Termination shall not affect any obligations arising prior to
+such termination, including indemnification obligations.
+
+IX. Governing Law and Jurisdiction
+
+This License shall be governed by and construed in accordance
+with the laws of the jurisdiction in which the Deploying Enterprise
+is established, without regard to its conflict of law principles.
+Any disputes arising under or in connection with this License
+shall be subject to the exclusive jurisdiction of the courts in
+that jurisdiction.
+
+X. Deepweb Deployment and Compliance
+
+By deploying the Software on deepweb or onion networks, You
+acknowledge and agree to the following:
+
+1. Compliance Responsibility - You are solely responsible for
+   ensuring that your use and deployment of the Software complies
+   with all applicable local, national, and international laws
+   and regulations.
+2. Risk Acknowledgment - You understand that deployment in deepweb
+   environments may attract additional legal and regulatory scrutiny.
+   The Developers and Deploying Enterprise expressly disclaim any
+   liability for any legal actions, losses, or damages resulting
+   from such deployment.
+3. No Endorsement of Illicit Activities - This License does not
+   permit, endorse, or encourage the use of the Software for any
+   unlawful activities. Use of the Software in connection with
+   any illicit activities is strictly prohibited.
+
+XI. General Provisions
+
+1. Severability - If any provision of this License is held to
+   be invalid or unenforceable, such provision shall be reformed
+   only to the extent necessary to make it enforceable, and the
+   remaining provisions shall remain in full force and effect.
+2. Entire Agreement - This License constitutes the entire agreement
+   between You and the Developers and Deploying Enterprise with
+   respect to the Software and supersedes any prior understandings
+   or agreements regarding the Software.
+3. Amendments - No amendment to or modification of this License
+   will be binding unless in writing and signed by an authorized
+   representative of the Developers or Deploying Enterprise.
