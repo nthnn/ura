@@ -60,6 +60,57 @@ func cashInEvent() {
 	}
 }
 
+func withdrawEvent() {
+	status, _, content := sendPost(
+		"/api/withdraw",
+		map[string]string{
+			"amount": getInputValue("cash-out-amount"),
+		},
+		map[string]interface{}{
+			"X-Session-Token": getSessionKey("session_token"),
+			"X-Security-Code": getSessionKey("security_code"),
+		},
+	)
+
+	if status != 200 {
+		showError("cash-out-error", "Internal error occured.")
+		return
+	}
+
+	var data map[string]string
+	err := json.Unmarshal([]byte(content), &data)
+
+	time.Sleep(1 * time.Second)
+	hideLoading("cash-out")
+
+	if err != nil || status != 200 {
+		showError("cash-out-error", "Internal error occured.")
+		return
+	} else if value, exists := data["status"]; exists && value != "200" {
+		showError("cash-out-error", capitalizeFirst(data["message"]))
+		return
+	}
+
+	if value, exists := data["transaction_id"]; exists {
+		generateQRCode("cash-out-qr", value)
+
+		mainContentClasses := document.Call(
+			"getElementById",
+			"main-cash-out-content",
+		).Get("classList")
+		qrContentClasses := document.Call(
+			"getElementById",
+			"qr-cash-out-content",
+		).Get("classList")
+
+		mainContentClasses.Call("remove", "d-block")
+		mainContentClasses.Call("add", "d-none")
+
+		qrContentClasses.Call("remove", "d-none")
+		qrContentClasses.Call("add", "d-block")
+	}
+}
+
 func installButtonActions() {
 	securityCode := document.Call(
 		"getElementById",
@@ -73,9 +124,14 @@ func installButtonActions() {
 		"getElementById",
 		"eye-hide",
 	)
+
 	cashInButton := document.Call(
 		"getElementById",
 		"cash-in-btn",
+	)
+	cashOutButton := document.Call(
+		"getElementById",
+		"cash-out-btn",
 	)
 
 	disableSelect := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -151,6 +207,16 @@ func installButtonActions() {
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			showLoading("cash-in")
 			go cashInEvent()
+
+			return nil
+		}),
+	)
+	cashOutButton.Call(
+		"addEventListener",
+		"click",
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			showLoading("cash-out")
+			go withdrawEvent()
 
 			return nil
 		}),
