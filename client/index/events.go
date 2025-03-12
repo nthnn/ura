@@ -63,3 +63,60 @@ func signupEvent(this js.Value, args []js.Value) interface{} {
 	go signup(username, email, password)
 	return nil
 }
+
+func installOffcanvasListeners() {
+	loginOffcanvas := document.Call(
+		"getElementById",
+		"login-offcanvas",
+	)
+	loginOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		document.Call(
+			"getElementById",
+			"login-username",
+		).Set("value", "")
+
+		document.Call(
+			"getElementById",
+			"login-password",
+		).Set("value", "")
+		return nil
+	})
+
+	signupOffcanvas := document.Call(
+		"getElementById",
+		"signup-offcanvas",
+	)
+	signupOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		document.Call(
+			"getElementById",
+			"signup-username",
+		).Set("value", "")
+
+		document.Call(
+			"getElementById",
+			"signup-email",
+		).Set("value", "")
+
+		document.Call(
+			"getElementById",
+			"signup-password",
+		).Set("value", "")
+
+		document.Call(
+			"getElementById",
+			"signup-password-confirm",
+		).Set("value", "")
+		return nil
+	})
+
+	loginOffcanvas.Call(
+		"addEventListener",
+		"hidden.bs.offcanvas",
+		loginOffcanvasCloseCallback,
+	)
+	signupOffcanvas.Call(
+		"addEventListener",
+		"hidden.bs.offcanvas",
+		signupOffcanvasCloseCallback,
+	)
+}
