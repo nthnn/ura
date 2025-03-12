@@ -11,6 +11,10 @@ import (
 	"github.com/nthnn/ura/util"
 )
 
+var (
+	timeoutMinute time.Duration = 60
+)
+
 func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -835,7 +839,7 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		}
 
 		var req struct {
-			Amount float64 `json:"amount"`
+			Amount string `json:"amount"`
 		}
 
 		err = json.NewDecoder(r.Body).Decode(&req)
@@ -844,7 +848,13 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		if req.Amount >= 100000 {
+		amount, err := strconv.ParseFloat(req.Amount, 64)
+		if err != nil {
+			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			return
+		}
+
+		if amount >= 100000 {
 			util.WriteJSONError(w, "Cash in amount must be less than 100k uro", http.StatusBadRequest)
 			return
 		}
@@ -882,7 +892,7 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		stmt2.Exec(transactionID, user.ID, req.Amount, now)
+		stmt2.Exec(transactionID, user.ID, amount, now)
 		stmt2.Close()
 
 		util.WriteJSON(w, map[string]string{
@@ -944,7 +954,7 @@ func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		expiresAt := time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339)
+		expiresAt := time.Now().Add(timeoutMinute * time.Minute).UTC().Format(time.RFC3339)
 		stmt, err := db.Prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)")
 
 		if err != nil {
