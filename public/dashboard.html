@@ -228,18 +228,28 @@
                 </div>
                 <hr class="mt-0"/>
 
-                <label class="form-control-label" for="cash-in-amount">Amount</label>
-                <input type="number" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Amount" id="cash-in-amount" autocomplete="off" />
+                <div id="main-cash-in-content" class="d-block">
+                    <label class="form-control-label" for="cash-in-amount">Amount</label>
+                    <input type="number" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Amount" id="cash-in-amount" autocomplete="off" />
+    
+                    <p class="text-danger d-none" id="cash-in-error"></p>
+                    <button class="btn btn-outline-primary w-100" id="cash-in-btn">
+                        <span id="cash-in-loading" class="d-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
+                            </svg>
+                        </span>
+                        <span id="cash-in-text" class="d-block">Process</span>
+                    </button>
+                </div>
 
-                <p class="text-danger d-none" id="cash-in-error"></p>
-                <button class="btn btn-outline-primary w-100" id="cash-in-btn">
-                    <span id="cash-in-loading" class="d-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
-                            <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
-                        </svg>
-                    </span>
-                    <span id="cash-in-text" class="d-block">Process</span>
-                </button>
+                <div id="qr-cash-in-content" class="d-none">
+                    <div class="w-100" align="center">
+                        <img id="cash-in-qr" class="mt-2 mb-1" width="250" height="250" />
+                        <br/>
+                        <small class="mt-2 text-muted">Scan this to proceed with transaction.</small>    
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -258,18 +268,28 @@
                 </div>
                 <hr class="mt-0"/>
 
-                <label class="form-control-label" for="cash-out-amount">Amount</label>
-                <input type="number" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Amount" id="cash-out-amount" autocomplete="off" />
+                <div id="main-cash-out-content" class="d-block">
+                    <label class="form-control-label" for="cash-out-amount">Amount</label>
+                    <input type="number" class="form-control bg-primary text-white border mt-2 mb-4" placeholder="Amount" id="cash-out-amount" autocomplete="off" />
+    
+                    <p class="text-danger d-none" id="cash-out-error"></p>
+                    <button class="btn btn-outline-primary w-100" id="cash-out-btn">
+                        <span id="cash-out-loading" class="d-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
+                            </svg>
+                        </span>
+                        <span id="cash-out-text" class="d-block">Process</span>
+                    </button>
+                </div>
 
-                <p class="text-danger d-none" id="cash-out-error"></p>
-                <button class="btn btn-outline-primary w-100" id="cash-out-btn">
-                    <span id="cash-out-loading" class="d-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-circle-half" viewBox="0 0 16 16">
-                            <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/>
-                        </svg>
-                    </span>
-                    <span id="cash-out-text" class="d-block">Process</span>
-                </button>
+                <div id="qr-cash-out-content" class="d-none">
+                    <div class="w-100" align="center">
+                        <img id="cash-out-qr" class="mt-2 mb-1" width="250" height="250" />
+                        <br/>
+                        <small class="mt-2 text-muted">Scan this to proceed with transaction.</small>    
+                    </div>
+                </div>
             </div>
         </div>
     </div>
