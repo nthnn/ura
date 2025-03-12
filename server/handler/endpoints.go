@@ -750,7 +750,7 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		}
 
 		var req struct {
-			Amount float64 `json:"amount"`
+			Amount string `json:"amount"`
 		}
 
 		err = json.NewDecoder(r.Body).Decode(&req)
@@ -759,7 +759,13 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		if req.Amount >= 50000 {
+		amount, err := strconv.ParseFloat(req.Amount, 64)
+		if err != nil {
+			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			return
+		}
+
+		if amount >= 100000 {
 			util.WriteJSONError(w, "Withdraw amount must be less than 50k uro", http.StatusBadRequest)
 			return
 		}
@@ -783,17 +789,17 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		}
 
 		var balanceUra float64
-		stmt, err := db.Query(
-			"SELECT balance_ura FROM users WHERE id = " + strconv.Itoa(int(user.ID)),
-		)
-		stmt.Scan(&balanceUra)
+		err = db.QueryRow(
+			"SELECT balance_ura FROM users WHERE id = ?",
+			user.ID,
+		).Scan(&balanceUra)
 
 		if err != nil {
 			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
 			return
 		}
 
-		if balanceUra < req.Amount {
+		if balanceUra < amount {
 			util.WriteJSONError(w, "Insufficient funds", http.StatusBadRequest)
 			return
 		}
@@ -815,7 +821,7 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		stmt2.Exec(transactionID, user.ID, req.Amount, now)
+		stmt2.Exec(transactionID, user.ID, amount, now)
 		stmt2.Close()
 
 		util.WriteJSON(w, map[string]string{
