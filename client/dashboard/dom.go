@@ -13,6 +13,85 @@ import (
 
 var document = js.Global().Get("document")
 
+func showError(errorId string, message string) {
+	errorText := js.Global().Get("document").Call(
+		"getElementById",
+		errorId,
+	)
+
+	errorText.Get("classList").Call("remove", "d-none")
+	errorText.Get("classList").Call("add", "d-block")
+	errorText.Set("innerHTML", message)
+
+	var hideAfter2Secs js.Func
+	hideAfter2Secs = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer hideAfter2Secs.Release()
+		hideError(errorId)
+
+		return nil
+	})
+
+	js.Global().Call(
+		"setTimeout",
+		hideAfter2Secs,
+		2500,
+	)
+}
+
+func hideError(errorId string) {
+	errorText := js.Global().Get("document").Call(
+		"getElementById",
+		errorId,
+	)
+
+	errorText.Get("classList").Call("remove", "d-block")
+	errorText.Get("classList").Call("add", "d-none")
+	errorText.Set("innerHTML", "")
+}
+
+func showLoading(name string) {
+	text := js.Global().Get("document").Call(
+		"getElementById",
+		name+"-text",
+	)
+	loading := js.Global().Get("document").Call(
+		"getElementById",
+		name+"-loading",
+	)
+
+	text.Get("classList").Call("remove", "d-block")
+	text.Get("classList").Call("add", "d-none")
+
+	loading.Get("classList").Call("remove", "d-none")
+	loading.Get("classList").Call("add", "d-block")
+}
+
+func hideLoading(name string) {
+	text := js.Global().Get("document").Call(
+		"getElementById",
+		name+"-text",
+	)
+	loading := js.Global().Get("document").Call(
+		"getElementById",
+		name+"-loading",
+	)
+
+	text.Get("classList").Call("remove", "d-none")
+	text.Get("classList").Call("add", "d-block")
+
+	loading.Get("classList").Call("remove", "d-block")
+	loading.Get("classList").Call("add", "d-none")
+}
+
+func getInputValue(id string) string {
+	element := document.Call("getElementById", id)
+	if element.IsUndefined() || element.IsNull() {
+		return ""
+	}
+
+	return element.Get("value").String()
+}
+
 func disableContextPopup() {
 	contextMenuCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) > 0 {
@@ -139,84 +218,61 @@ func showActualContent() {
 	)
 }
 
-func installButtonActions() {
-	securityCode := document.Call(
+func installOffcanvasListeners() {
+	cashInOffcanvas := document.Call(
 		"getElementById",
-		"card-security-code",
+		"cash-in-offcanvas",
 	)
-	showSecurityCodeButton := document.Call(
-		"getElementById",
-		"eye-show",
-	)
-	hideSecurityCodeButton := document.Call(
-		"getElementById",
-		"eye-hide",
-	)
+	cashInOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		document.Call(
+			"getElementById",
+			"cash-in-amount",
+		).Set("value", "")
 
-	disableSelect := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		args[0].Call("preventDefault")
+		mainContentClasses := document.Call(
+			"getElementById",
+			"main-cash-in-content",
+		).Get("classList")
+		qrContentClasses := document.Call(
+			"getElementById",
+			"qr-cash-in-content",
+		).Get("classList")
+		qrCashInImage := document.Call(
+			"getElementById",
+			"cash-in-qr",
+		)
+
+		mainContentClasses.Call("remove", "d-none")
+		mainContentClasses.Call("add", "d-block")
+
+		qrContentClasses.Call("remove", "d-block")
+		qrContentClasses.Call("add", "d-none")
+
+		qrCashInImage.Set("src", "")
 		return nil
 	})
 
-	showSecurityCodeButton.Get("style").Set("userSelect", "none")
-	showSecurityCodeButton.Call(
-		"addEventListener",
-		"selectstart",
-		disableSelect,
+	cashOutOffcanvas := document.Call(
+		"getElementById",
+		"cash-out-offcanvas",
 	)
-	showSecurityCodeButton.Call(
+	cashOutOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		document.Call(
+			"getElementById",
+			"cash-out-amount",
+		).Set("value", "")
+
+		return nil
+	})
+
+	cashInOffcanvas.Call(
 		"addEventListener",
-		"mousedown",
-		disableSelect,
+		"hidden.bs.offcanvas",
+		cashInOffcanvasCloseCallback,
 	)
-	showSecurityCodeButton.Call(
+	cashOutOffcanvas.Call(
 		"addEventListener",
-		"click",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			securityCode.Call(
-				"setAttribute",
-				"type",
-				"text",
-			)
-
-			showSecurityCodeButton.Get("classList").Call("remove", "d-block")
-			showSecurityCodeButton.Get("classList").Call("add", "d-none")
-
-			hideSecurityCodeButton.Get("classList").Call("remove", "d-none")
-			hideSecurityCodeButton.Get("classList").Call("add", "d-block")
-
-			return nil
-		}),
-	)
-
-	hideSecurityCodeButton.Get("style").Set("userSelect", "none")
-	hideSecurityCodeButton.Call(
-		"addEventListener",
-		"selectstart",
-		disableSelect,
-	)
-	hideSecurityCodeButton.Call(
-		"addEventListener",
-		"mousedown",
-		disableSelect,
-	)
-	hideSecurityCodeButton.Call(
-		"addEventListener",
-		"click",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			securityCode.Call(
-				"setAttribute",
-				"type",
-				"password",
-			)
-
-			hideSecurityCodeButton.Get("classList").Call("remove", "d-block")
-			hideSecurityCodeButton.Get("classList").Call("add", "d-none")
-
-			showSecurityCodeButton.Get("classList").Call("remove", "d-none")
-			showSecurityCodeButton.Get("classList").Call("add", "d-block")
-
-			return nil
-		}),
+		"hidden.bs.offcanvas",
+		cashOutOffcanvasCloseCallback,
 	)
 }
