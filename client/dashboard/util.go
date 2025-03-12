@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"syscall/js"
+	"unicode"
+	"unicode/utf8"
 )
 
 func redirectTo(url string) {
@@ -35,4 +37,13 @@ func numberWithCommas(f float64) string {
 	}
 
 	return result.String() + "." + decPart
+}
+
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[size:]
 }
