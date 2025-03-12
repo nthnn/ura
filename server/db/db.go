@@ -1,9 +1,11 @@
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 func Initialize() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "./banking.db")
+	db, err := sql.Open("sqlite3", "ura.s3db")
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +71,9 @@ func Initialize() (*sql.DB, error) {
 			return nil, err
 		}
 	}
+
+	db.SetMaxOpenConns(10)
+	db.SetConnMaxIdleTime(0)
 
 	return db, nil
 }
