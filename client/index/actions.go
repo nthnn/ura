@@ -7,7 +7,6 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
-	"syscall/js"
 	"time"
 )
 
@@ -95,7 +94,7 @@ func login(username, password string) {
 }
 
 func signup(username, email, password string) {
-	showLoading("login")
+	showLoading("signup")
 
 	hash := sha512.Sum512([]byte(password))
 	status, _, content := sendPost(
@@ -114,7 +113,7 @@ func signup(username, email, password string) {
 
 	if err != nil || status != 200 {
 		showError("signup-error", "Internal error occured.")
-		hideLoading("login")
+		hideLoading("signup")
 
 		return
 	} else if value, exists := data["status"]; exists {
@@ -125,10 +124,10 @@ func signup(username, email, password string) {
 			setInputValue("signup-password-confirm", "")
 
 			showError("signup-success", "Account created, you can now log-in.")
-			hideLoading("login")
+			hideLoading("signup")
 			return
 		} else {
-			hideLoading("login")
+			hideLoading("signup")
 
 			if message, exists := data["message"]; exists {
 				showError("signup-error", capitalizeFirst(message))
@@ -140,65 +139,8 @@ func signup(username, email, password string) {
 		}
 	} else {
 		showError("signup-error", "Failed to create new account. Please try again later.")
-		hideLoading("login")
+		hideLoading("signup")
 
 		return
 	}
-}
-
-func installOffcanvasListeners() {
-	loginOffcanvas := document.Call(
-		"getElementById",
-		"login-offcanvas",
-	)
-	loginOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"login-username",
-		).Set("value", "")
-
-		document.Call(
-			"getElementById",
-			"login-password",
-		).Set("value", "")
-		return nil
-	})
-
-	signupOffcanvas := document.Call(
-		"getElementById",
-		"signup-offcanvas",
-	)
-	signupOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"signup-username",
-		).Set("value", "")
-
-		document.Call(
-			"getElementById",
-			"signup-email",
-		).Set("value", "")
-
-		document.Call(
-			"getElementById",
-			"signup-password",
-		).Set("value", "")
-
-		document.Call(
-			"getElementById",
-			"signup-password-confirm",
-		).Set("value", "")
-		return nil
-	})
-
-	loginOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		loginOffcanvasCloseCallback,
-	)
-	signupOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		signupOffcanvasCloseCallback,
-	)
 }
