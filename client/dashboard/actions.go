@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/json"
 	"sync"
-	"syscall/js"
 	"time"
 )
 
@@ -53,43 +52,6 @@ func checkSessionKey() {
 	}
 
 	wg.Wait()
-}
-
-func installOffcanvasListeners() {
-	cashInOffcanvas := document.Call(
-		"getElementById",
-		"cash-in-offcanvas",
-	)
-	cashInOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"cash-in-amount",
-		).Set("value", "")
-		return nil
-	})
-
-	cashOutOffcanvas := document.Call(
-		"getElementById",
-		"cash-out-offcanvas",
-	)
-	cashOutOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"cash-out-amount",
-		).Set("value", "")
-		return nil
-	})
-
-	cashInOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		cashInOffcanvasCloseCallback,
-	)
-	cashOutOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		cashOutOffcanvasCloseCallback,
-	)
 }
 
 func periodicSessionValidation() {
