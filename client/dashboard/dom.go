@@ -4,8 +4,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
+	"image/color"
 	"syscall/js"
 
 	"github.com/skip2/go-qrcode"
@@ -173,13 +175,25 @@ func fixTabAnimations() {
 }
 
 func generateQRCode(id string, data string) error {
-	png, err := qrcode.Encode(data, qrcode.Highest, 256)
+	png, err := qrcode.New(data, qrcode.Highest)
+	errorValue := errors.New("cannot create QR code")
+
 	if err != nil {
-		return errors.New("cannot create QR code")
+		return errorValue
 	}
 
-	base64Image := base64.StdEncoding.EncodeToString(png)
-	dataURI := "data:image/png;base64," + base64Image
+	png.ForegroundColor = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	png.BackgroundColor = color.RGBA{R: 0, G: 0, B: 0, A: 0}
+	png.DisableBorder = true
+
+	var buf bytes.Buffer
+	err = png.Write(256, &buf)
+	if err != nil {
+		return errorValue
+	}
+
+	base64Img := base64.StdEncoding.EncodeToString(buf.Bytes())
+	dataURI := "data:image/png;base64," + base64Img
 
 	document.Call("getElementById", id).Set("src", dataURI)
 	return nil
