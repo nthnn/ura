@@ -1,24 +1,27 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
 	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/nthnn/ura/db"
 	"github.com/nthnn/ura/logger"
 	"github.com/nthnn/ura/mux"
 )
 
 var (
-	port    = int16(5173)
-	retries = 0
+	port     = int16(5173)
+	retries  = 0
+	database *sql.DB
 )
 
 func initServer() {
-	db, err := db.Initialize()
+	database, err := db.Initialize()
 	if err != nil {
 		panic("Failed to initialize database: " + err.Error())
 	}
@@ -26,7 +29,7 @@ func initServer() {
 	mux.Initialize(port)
 	logger.Info("Starting server on port %d.", port)
 
-	mux.InitializeEntryPoints(db)
+	mux.InitializeEntryPoints(database)
 	logger.Info("Initialized server entry points!")
 
 	mux.RootDirectory("public")
@@ -47,6 +50,10 @@ func runServer() {
 
 func panicRecovery(done chan bool) {
 	if <-done {
+		if database != nil {
+			database.Close()
+		}
+
 		os.Exit(0)
 	}
 
