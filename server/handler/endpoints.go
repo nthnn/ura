@@ -813,7 +813,7 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		now := time.Now().UTC().Format(time.RFC3339)
 		stmt2, err := db.Prepare(
 			"INSERT INTO transactions (transaction_id, user_id, category, amount, created_at, processed) " +
-				"VALUES (?, ?, 'withdraw', ?, ?, false)",
+				"VALUES (?, ?, 'withdraw', ?, ?, 0)",
 		)
 
 		if err != nil {
@@ -997,7 +997,7 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		}
 
 		rows, err := db.Query(
-			"SELECT transaction_id, category, amount, created_at "+
+			"SELECT transaction_id, category, amount, created_at, processed "+
 				"FROM transactions WHERE user_id = ?",
 			user.ID,
 		)
@@ -1011,14 +1011,16 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		var transactions []map[string]interface{}
 		for rows.Next() {
 			var tid, category, createdAt string
+			var processed int
 			var amount float64
 
-			rows.Scan(&tid, &category, &amount, &createdAt)
+			rows.Scan(&tid, &category, &amount, &createdAt, &processed)
 			transactions = append(transactions, map[string]interface{}{
 				"transaction_id": tid,
 				"category":       category,
 				"amount":         amount,
 				"created_at":     createdAt,
+				"processed":      processed,
 			})
 		}
 
