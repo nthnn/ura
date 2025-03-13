@@ -276,6 +276,26 @@ func installOffcanvasListeners() {
 			"cash-out-amount",
 		).Set("value", "")
 
+		mainContentClasses := document.Call(
+			"getElementById",
+			"main-cash-out-content",
+		).Get("classList")
+		qrContentClasses := document.Call(
+			"getElementById",
+			"qr-cash-out-content",
+		).Get("classList")
+		qrCashInImage := document.Call(
+			"getElementById",
+			"cash-out-qr",
+		)
+
+		mainContentClasses.Call("remove", "d-none")
+		mainContentClasses.Call("add", "d-block")
+
+		qrContentClasses.Call("remove", "d-block")
+		qrContentClasses.Call("add", "d-none")
+
+		qrCashInImage.Set("src", "")
 		return nil
 	})
 
