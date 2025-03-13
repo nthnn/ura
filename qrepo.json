@@ -15,7 +15,7 @@
         "build-server": [
             "mkdir -p dist",
             "cd server",
-            "go build -ldflags \"-s -w\" -o ../dist/ura github.com/nthnn/ura",
+            "go build -tags netgo,osusergo -ldflags \"-s -w\" -o ../dist/ura github.com/nthnn/ura",
             "cp -r ../public ../dist/",
             "cd .."
         ],
@@ -24,9 +24,9 @@
             "mkdir -p dist/public/scripts",
             "mkdir -p dist/public/styles",
             "cd client/index",
-            "GOOS=js GOARCH=wasm go build -o ../../dist/public/asm/index.wasm .",
+            "GOOS=js GOARCH=wasm go build -ldflags=\"-s -w\" -o ../../dist/public/asm/index.wasm .",
             "cd ../dashboard",
-            "GOOS=js GOARCH=wasm go build -o ../../dist/public/asm/dashboard.wasm .",
+            "GOOS=js GOARCH=wasm go build -ldflags=\"-s -w\" -o ../../dist/public/asm/dashboard.wasm .",
             "cd ../..",
             "cp assets/ura-icon.ico dist/public/favicon.ico",
             "cp $(go env GOROOT)/misc/wasm/wasm_exec.js dist/public/scripts/"
