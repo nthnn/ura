@@ -6,6 +6,30 @@
     border-color: var(--bs-gray) !important;
     border-width: 1px !important;
     outline: none !important;
+    scroll-behavior: smooth !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bs-dark) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+  
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--bs-dark);
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
 
 input::-webkit-outer-spin-button,
@@ -55,7 +79,7 @@ input[type=number] {
     align-items: center;
 }
 
-.offcanvas {
+.offcanvas, table thead {
     -webkit-backdrop-filter: blur(6px) !important;
     will-change: backdrop-filter !important;
     background-color: rgba(26, 26, 26, 0.5) !important;
@@ -81,6 +105,22 @@ input[type=number] {
 
 .bi-circle-half {
     animation: spin 2s linear infinite;
+}
+
+.table-responsive {
+    max-height: 500px;
+    overflow-y: auto;
+    border-color: var(--bs-gray-600) !important;
+}
+
+table thead {
+    top: 0;
+    z-index: 2;
+    position: sticky;
+}
+
+table, thead, tbody, tr, th, td {
+    border: 0px !important;
 }
 
 @keyframes shimmer {
