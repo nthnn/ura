@@ -59,7 +59,6 @@ func InitializeEntryPoints(db *sql.DB) {
 	addEntryPoint("/api/user/delete", db, handler.UserDelete)
 	addEntryPoint("/api/user/login", db, handler.UserLogin)
 	addEntryPoint("/api/user/logout", db, handler.UserLogout)
-	addEntryPoint("/api/user/info", db, handler.UserFetchInfo)
 	addEntryPoint("/api/user/notifications", db, handler.UserFetchNotifications)
 
 	addEntryPoint("/api/loan/request", db, handler.LoanRequest)
@@ -79,6 +78,11 @@ func InitializeEntryPoints(db *sql.DB) {
 	muxServer.Handle(
 		"/api/user/session",
 		http.HandlerFunc(handler.ValidateSession(db)),
+	)
+
+	muxServer.Handle(
+		"/api/user/info",
+		http.HandlerFunc(handler.UserFetchInfo(db)),
 	)
 }
 
