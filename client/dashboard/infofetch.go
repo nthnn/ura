@@ -163,6 +163,11 @@ func loadInitialInformation() {
 			noTransactionTable.Call("remove", "d-block")
 			noTransactionTable.Call("add", "d-none")
 
+			document.Call(
+				"getElementById",
+				"transactions",
+			).Set("innerHTML", "")
+
 			for _, transaction := range data.Transactions {
 				renderTransaction("transactions", transaction)
 			}
