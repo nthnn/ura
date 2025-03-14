@@ -166,6 +166,18 @@ func loadInitialInformation() {
 			for _, transaction := range data.Transactions {
 				renderTransaction("transactions", transaction)
 			}
+
+			document.Call(
+				"getElementById",
+				"download-transaction-btn",
+			).Call(
+				"addEventListener",
+				"click",
+				js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					generateTransactionPDF(data.Transactions)
+					return nil
+				}),
+			)
 		} else {
 			transactionTable.Call("remove", "d-block")
 			transactionTable.Call("add", "d-none")
