@@ -108,7 +108,7 @@ input[type=number] {
 }
 
 .table-responsive {
-    max-height: 500px;
+    max-height: 650px;
     overflow-y: auto;
     border-color: var(--bs-gray-600) !important;
 }
