@@ -34,6 +34,16 @@ func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		if !util.ValidateUsername(req.Username) {
+			util.WriteJSONError(w, "Username cannot contain punctuations except underscore", http.StatusBadRequest)
+			return
+		}
+
+		if !util.ValidateEmail(req.Email) {
+			util.WriteJSONError(w, "Email address is not valid", http.StatusBadRequest)
+			return
+		}
+
 		if !util.IsValidSHA512(req.Password) {
 			util.WriteJSONError(w, "Password is not a valid SHA-512", http.StatusBadRequest)
 			return
@@ -759,13 +769,21 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		if !util.ValidateNumbers(req.Amount) {
+			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			return
+		}
+
 		amount, err := strconv.ParseFloat(req.Amount, 64)
 		if err != nil {
 			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
 			return
 		}
 
-		if amount >= 100000 {
+		if amount <= 0 {
+			util.WriteJSONError(w, "Withdraw amount cannot be zero or negative value", http.StatusBadRequest)
+			return
+		} else if amount >= 100000 {
 			util.WriteJSONError(w, "Withdraw amount must be less than 50k uro", http.StatusBadRequest)
 			return
 		}
@@ -854,13 +872,21 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		if !util.ValidateNumbers(req.Amount) {
+			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			return
+		}
+
 		amount, err := strconv.ParseFloat(req.Amount, 64)
 		if err != nil {
 			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
 			return
 		}
 
-		if amount >= 100000 {
+		if amount <= 0 {
+			util.WriteJSONError(w, "Cash in amount cannot be zero or negative value", http.StatusBadRequest)
+			return
+		} else if amount >= 100000 {
 			util.WriteJSONError(w, "Cash in amount must be less than 100k uro", http.StatusBadRequest)
 			return
 		}
@@ -1165,6 +1191,11 @@ func ValidateSession(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		sessionToken := r.Header.Get("X-Session-Token")
 		if sessionToken == "" {
 			util.WriteJSONError(w, "Missing session token", http.StatusUnauthorized)
+			return
+		}
+
+		if !util.ValidateSessionToken(sessionToken) {
+			util.WriteJSONError(w, "Mission session token", http.StatusUnauthorized)
 			return
 		}
 
