@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
+	"github.com/nthnn/ura/util"
 )
 
 func authenticate(db *sql.DB, r *http.Request) (*User, error) {
@@ -13,9 +15,17 @@ func authenticate(db *sql.DB, r *http.Request) (*User, error) {
 		return nil, errors.New("missing session token")
 	}
 
+	if !util.ValidateSessionToken(sessionToken) {
+		return nil, errors.New("invalid session token")
+	}
+
 	securityCode := r.Header.Get("X-Security-Code")
 	if securityCode == "" {
 		return nil, errors.New("missing security code")
+	}
+
+	if !util.ValidateSecurityCode(securityCode) {
+		return nil, errors.New("invalid security code")
 	}
 
 	var userID int64
