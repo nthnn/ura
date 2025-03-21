@@ -1,31 +1,32 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"database/sql"
-	"errors"
 	"net/http"
 	"time"
 
+	"github.com/nthnn/ura/logger"
 	"github.com/nthnn/ura/util"
 )
 
-func authenticate(db *sql.DB, r *http.Request) (*User, error) {
+func authenticate(db *sql.DB, r *http.Request) (*User, string) {
 	sessionToken := r.Header.Get("X-Session-Token")
 	if sessionToken == "" {
-		return nil, errors.New("missing session token")
+		return nil, errInvalidLoginCredentials
 	}
 
 	if !util.ValidateSessionToken(sessionToken) {
-		return nil, errors.New("invalid session token")
+		return nil, errInvalidLoginCredentials
 	}
 
 	securityCode := r.Header.Get("X-Security-Code")
 	if securityCode == "" {
-		return nil, errors.New("missing security code")
+		return nil, errInvalidLoginCredentials
 	}
 
 	if !util.ValidateSecurityCode(securityCode) {
-		return nil, errors.New("invalid security code")
+		return nil, errInvalidLoginCredentials
 	}
 
 	var userID int64
@@ -36,16 +37,22 @@ func authenticate(db *sql.DB, r *http.Request) (*User, error) {
 		sessionToken,
 	).Scan(&userID, &expiresAtStr)
 	if err != nil {
-		return nil, errors.New("invalid session token")
+		if err == sql.ErrNoRows {
+			return nil, errInvalidLoginCredentials
+		}
+
+		logger.Error("Error querying session: %s", err.Error())
+		return nil, errInvalidLoginCredentials
 	}
 
 	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 	if err != nil {
-		return nil, errors.New("session parse error")
+		logger.Error("Error parsing session expiry: %s", err.Error())
+		return nil, errInvalidLoginCredentials
 	}
 
 	if time.Now().After(expiresAt) {
-		return nil, errors.New("session expired")
+		return nil, errInvalidLoginCredentials
 	}
 
 	var user User
@@ -65,13 +72,23 @@ func authenticate(db *sql.DB, r *http.Request) (*User, error) {
 	)
 
 	if err != nil {
-		return nil, errors.New("user not found")
+		if err == sql.ErrNoRows {
+			return nil, errInvalidLoginCredentials
+		}
+
+		logger.Error("Error querying user: %s", err.Error())
+		return nil, errInternalErrorOccurred
 	}
 
-	user.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-	if user.SecurityCode != securityCode {
-		return nil, errors.New("invalid security code")
+	user.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
+	if err != nil {
+		logger.Error("Error parsing user createdAt: %s", err.Error())
+		return nil, errInternalErrorOccurred
 	}
 
-	return &user, nil
+	if subtle.ConstantTimeCompare([]byte(user.SecurityCode), []byte(securityCode)) != 1 {
+		return nil, errInvalidLoginCredentials
+	}
+
+	return &user, ""
 }
