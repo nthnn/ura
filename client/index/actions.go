@@ -32,7 +32,7 @@ func checkSessionKey() {
 				return
 			}
 
-			if value, exists := data["status"]; exists && value == "200" {
+			if value, exists := data["status"]; exists && value == "ok" {
 				redirectTo("/dashboard.html")
 				return
 			} else {
@@ -69,7 +69,7 @@ func login(username, password string) {
 		hideLoading("login")
 
 		return
-	} else if value, exists := data["status"]; exists && value != "200" {
+	} else if value, exists := data["status"]; exists && value != "ok" {
 		showError("login-error", capitalizeFirst(data["message"]))
 		hideLoading("login")
 
@@ -117,7 +117,7 @@ func signup(username, email, password string) {
 
 		return
 	} else if value, exists := data["status"]; exists {
-		if value == "200" {
+		if value == "ok" {
 			setInputValue("signup-username", "")
 			setInputValue("signup-email", "")
 			setInputValue("signup-password", "")

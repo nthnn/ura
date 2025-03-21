@@ -10,10 +10,16 @@ import (
 )
 
 func cashInEvent() {
+	amount := getInputValue("cash-in-amount")
+	if amount == "" {
+		showError("cash-in-error", "Empty cash-in amount value.")
+		return
+	}
+
 	status, _, content := sendPost(
 		"/api/cashin",
 		map[string]string{
-			"amount": getInputValue("cash-in-amount"),
+			"amount": amount,
 		},
 		map[string]interface{}{
 			"X-Session-Token": getSessionKey("session_token"),
@@ -35,7 +41,7 @@ func cashInEvent() {
 	if err != nil || status != 200 {
 		showError("cash-in-error", "Internal error occured.")
 		return
-	} else if value, exists := data["status"]; exists && value != "200" {
+	} else if value, exists := data["status"]; exists && value != "ok" {
 		showError("cash-in-error", capitalizeFirst(data["message"]))
 		return
 	}
@@ -86,7 +92,7 @@ func withdrawEvent() {
 	if err != nil || status != 200 {
 		showError("cash-out-error", "Internal error occured.")
 		return
-	} else if value, exists := data["status"]; exists && value != "200" {
+	} else if value, exists := data["status"]; exists && value != "ok" {
 		showError("cash-out-error", capitalizeFirst(data["message"]))
 		return
 	}

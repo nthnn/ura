@@ -31,7 +31,6 @@ type User struct {
 }
 
 type Response struct {
-	Loans        interface{}   `json:"loans"`
 	Transactions []Transaction `json:"transactions"`
 	User         User          `json:"user"`
 }

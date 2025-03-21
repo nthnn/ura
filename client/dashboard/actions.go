@@ -36,7 +36,7 @@ func checkSessionKey() {
 				return
 			}
 
-			if value, exists := data["status"]; !exists || value != "200" {
+			if value, exists := data["status"]; !exists || value != "ok" {
 				removeSessionKey("session_token")
 				removeSessionKey("security_code")
 
@@ -76,7 +76,7 @@ func periodicSessionValidation() {
 				return
 			}
 
-			if value, exists := data["status"]; !exists || value != "200" {
+			if value, exists := data["status"]; !exists || value != "ok" {
 				removeSessionKey("session_token")
 				removeSessionKey("security_code")
 
