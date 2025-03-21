@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -36,20 +37,31 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 		duration := time.Since(start)
 
+		clientIP := r.Header.Get("X-Forwarded-For")
+		if clientIP == "" {
+			clientIP = r.RemoteAddr
+		}
+
 		logger.Log(
 			"Request: %s %s | Remote Address: %s | Duration: %v",
 			r.Method,
 			r.URL.Path,
-			r.RemoteAddr,
+			clientIP,
 			duration,
 		)
 	})
 }
 
-func Initialize(port int16) {
+func Initialize(bindAddr string, port int16) {
+	if bindAddr == "" {
+		bindAddr = "0.0.0.0"
+	}
+
 	muxServer = http.NewServeMux()
+	addr := bindAddr + ":" + strconv.Itoa(int(port))
+
 	httpServer = &http.Server{
-		Addr:    "localhost:" + strconv.Itoa(int(port)),
+		Addr:    addr,
 		Handler: loggingMiddleware(muxServer),
 	}
 }
@@ -59,18 +71,9 @@ func InitializeEntryPoints(db *sql.DB) {
 	addEntryPoint("/api/user/delete", db, handler.UserDelete)
 	addEntryPoint("/api/user/login", db, handler.UserLogin)
 	addEntryPoint("/api/user/logout", db, handler.UserLogout)
-	addEntryPoint("/api/user/notifications", db, handler.UserFetchNotifications)
 
-	addEntryPoint("/api/loan/request", db, handler.LoanRequest)
-	addEntryPoint("/api/loan/accept", db, handler.LoanAccept)
-	addEntryPoint("/api/loan/reject", db, handler.LoanReject)
-
-	addEntryPoint("/api/payment/transaction", db, handler.PaymentTransaction)
+	addEntryPoint("/api/payment/send", db, handler.PaymentProcess)
 	addEntryPoint("/api/payment/request", db, handler.PaymentRequest)
-
-	addEntryPoint("/api/refund/request", db, handler.RefundRequest)
-	addEntryPoint("/api/refund/reject", db, handler.RefundReject)
-	addEntryPoint("/api/refund/process", db, handler.RefundProcess)
 
 	addEntryPoint("/api/withdraw", db, handler.Withdraw)
 	addEntryPoint("/api/cashin", db, handler.CashIn)
@@ -86,10 +89,30 @@ func InitializeEntryPoints(db *sql.DB) {
 	)
 }
 
-func RootDirectory(folderName string) {
+func RootDirectory(baseDir, folderName string) {
+	safeFolder := filepath.Clean(folderName)
+	absPath := filepath.Join(baseDir, safeFolder)
+
+	baseAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		logger.Error("Error obtaining absolute path for baseDir: %s", err.Error())
+		return
+	}
+
+	absPath, err = filepath.Abs(absPath)
+	if err != nil {
+		logger.Error("Error obtaining absolute path for folder: %s", err.Error())
+		return
+	}
+
+	if !filepath.HasPrefix(absPath, baseAbs) {
+		logger.Error("Attempted directory traversal in static file serving: %s", folderName)
+		return
+	}
+
 	muxServer.Handle(
 		"/",
-		http.FileServer(http.Dir("./"+folderName)),
+		http.FileServer(http.Dir(absPath)),
 	)
 }
 
@@ -98,7 +121,7 @@ func Start() error {
 }
 
 func Stop() {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
