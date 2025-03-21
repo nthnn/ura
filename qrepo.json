@@ -28,8 +28,7 @@
             "cd ../dashboard",
             "GOOS=js GOARCH=wasm go build -ldflags=\"-s -w\" -o ../../dist/public/asm/dashboard.wasm .",
             "cd ../..",
-            "cp assets/ura-icon.ico dist/public/favicon.ico",
-            "cp $(go env GOROOT)/misc/wasm/wasm_exec.js dist/public/scripts/"
+            "cp assets/ura-icon.ico dist/public/favicon.ico"
         ],
         "dev": [
             "qrepo run build-server",

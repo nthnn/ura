@@ -3,7 +3,7 @@
     <h1>Ura Banking System</h1>
 </p>
 
-A secure and robust banking system API built in pure Golang using SQLite and Go WASM for client-side rendering. Ura provides a full suite of banking features—including user management, loan handling, payment transactions, session management, and more—designed with industry best practices for security, performance, and scalability.
+A secure and robust banking system API built in pure Golang using SQLite and Go WASM for client-side rendering. Ura provides a full suite of banking features—including user management, payment transactions, cash-in & money withdrawal, session management, and more—designed with industry best practices for security, performance, and scalability.
 
 ## Contributing
 
