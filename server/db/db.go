@@ -2,10 +2,12 @@ package db
 
 import (
 	"database/sql"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func Initialize() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "ura.s3db")
+	db, err := sql.Open("sqlite3", "ura.s3db?_foreign_keys=on")
 	if err != nil {
 		return nil, err
 	}
@@ -22,22 +24,11 @@ func Initialize() (*sql.DB, error) {
             created_at TEXT
         );`,
 		`CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE,
             user_id INTEGER,
             expires_at TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
-        );`,
-		`CREATE TABLE IF NOT EXISTS loans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            loan_id TEXT,
-            debtor_id INTEGER,
-            creditor_id INTEGER,
-            amount REAL,
-            loan_type TEXT,
-            timespan INTEGER,
-            payment_type TEXT,
-            status TEXT,
-            created_at TEXT
         );`,
 		`CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,20 +38,6 @@ func Initialize() (*sql.DB, error) {
             amount REAL,
             created_at TEXT,
             processed INTEGER DEFAULT 1
-        );`,
-		`CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            message TEXT,
-            created_at TEXT,
-            is_read INTEGER DEFAULT 0
-        );`,
-		`CREATE TABLE IF NOT EXISTS refunds (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            refund_id TEXT,
-            loan_id TEXT,
-            status TEXT,
-            created_at TEXT
         );`,
 	}
 
@@ -73,7 +50,9 @@ func Initialize() (*sql.DB, error) {
 	}
 
 	db.SetMaxOpenConns(10)
-	db.SetConnMaxIdleTime(0)
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
 
 	return db, nil
 }
