@@ -5,18 +5,15 @@ import (
 	"regexp"
 )
 
-func IsValidSHA512(hash string) bool {
-	if len(hash) != 128 {
-		return false
-	}
+var sha512Regex *regexp.Regexp = regexp.MustCompile("^[a-fA-F0-9]{128}$")
+var usernameRegex *regexp.Regexp = regexp.MustCompile(`^[\p{L}\p{N}_.]+$`)
 
-	match, _ := regexp.MatchString("^[a-fA-F0-9]{128}$", hash)
-	return match
+func IsValidSHA512(hash string) bool {
+	return len(hash) == 128 && sha512Regex.MatchString(hash)
 }
 
 func ValidateUsername(username string) bool {
-	re := regexp.MustCompile(`^[\p{L}\p{N}_.]+$`)
-	return re.MatchString(username)
+	return usernameRegex.MatchString(username)
 }
 
 func ValidateEmail(email string) bool {
@@ -25,7 +22,19 @@ func ValidateEmail(email string) bool {
 }
 
 func ValidateNumbers(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	dotCount := 0
 	for _, ch := range s {
+		if ch == '.' {
+			dotCount++
+			if dotCount > 1 {
+				return false
+			}
+			continue
+		}
 		if ch < '0' || ch > '9' {
 			return false
 		}
@@ -42,8 +51,7 @@ func ValidateSessionToken(s string) bool {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if !((c >= '0' && c <= '9') ||
-			(c >= 'a' && c <= 'f') ||
-			(c >= 'A' && c <= 'F')) {
+			(c >= 'a' && c <= 'f')) {
 			return false
 		}
 	}
@@ -59,8 +67,23 @@ func ValidateSecurityCode(s string) bool {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if !((c >= '0' && c <= '9') ||
-			(c >= 'a' && c <= 'f') ||
-			(c >= 'A' && c <= 'F')) {
+			(c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func ValidateTransactionID(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !((c >= '0' && c <= '9') ||
+			(c >= 'a' && c <= 'f')) {
 			return false
 		}
 	}
