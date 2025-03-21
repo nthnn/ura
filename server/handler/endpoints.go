@@ -3,7 +3,6 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,12 +12,32 @@ import (
 
 var (
 	timeoutMinute time.Duration = 60
+
+	errMethodNotAllowed                   = "Method Not Allowed"
+	errInvalidRequest                     = "Invalid request body"
+	errInvalidUsername                    = "Username cannot contain punctuations except underscore"
+	errInvalidSignupCredentials           = "Invalid credentials"
+	errInternalErrorOccurred              = "Internal error occurred"
+	errUserStillActive                    = "Account has recent activity"
+	errPaymentRequestNotFound             = "Payment request not found"
+	errCannotPayOwnAccount                = "Cannot process payment to self"
+	errInsufficientFunds                  = "Insufficient funds"
+	errPaymentExceeds100kUro              = "Payment amount exceeds 100k uro"
+	errExceededReceivedFunds              = "Recipient received funds limit exceeded in past 2 business days"
+	errPaymentAlreadyProcessed            = "Payment request already processed"
+	errInvalidAmountValue                 = "Invalid amount value"
+	errInvalidWithdrawAmount              = "Withdraw amount cannot be zero or negative value"
+	errInvalidWithdrawAmountExceeds50kUro = "Withdraw amount must be less than 50k uro"
+	errInvalidCashInAmount                = "Cash in amount cannot be zero or negative value"
+	errCashInAmountExceeds100kUro         = "Cash in amount must be less than 100k uro"
+	errCashInEveryIn12Hours               = "Cash in allowed only every 12 hours"
+	errInvalidLoginCredentials            = "Invalid log-in credentials"
 )
 
 func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errMethodNotAllowed)
 			return
 		}
 
@@ -30,34 +49,50 @@ func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid request body", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		if !util.ValidateUsername(req.Username) {
-			util.WriteJSONError(w, "Username cannot contain punctuations except underscore", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidUsername)
 			return
 		}
 
 		if !util.ValidateEmail(req.Email) {
-			util.WriteJSONError(w, "Email address is not valid", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidSignupCredentials)
 			return
 		}
 
 		if !util.IsValidSHA512(req.Password) {
-			util.WriteJSONError(w, "Password is not a valid SHA-512", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidSignupCredentials)
+			return
+		}
+
+		var count int
+		err = db.QueryRow(
+			"SELECT COUNT(*) FROM users WHERE username = ? OR email = ?",
+			req.Username, req.Email,
+		).Scan(&count)
+
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
+
+		if count > 0 {
+			util.WriteJSONError(w, errInvalidSignupCredentials)
 			return
 		}
 
 		identifier, err := util.GenerateRandomIdentifier(128)
 		if err != nil {
-			util.WriteJSONError(w, "Error generating identifier", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		securityCode, err := util.GenerateRandomIdentifier(128)
 		if err != nil {
-			util.WriteJSONError(w, "Error generating security code", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
@@ -67,7 +102,7 @@ func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 		defer stmt.Close()
@@ -83,12 +118,12 @@ func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database insert error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		util.WriteJSON(w, map[string]interface{}{
-			"status": "200",
+			"status": "ok",
 		})
 	}
 }
@@ -96,26 +131,19 @@ func UserCreate(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func UserDelete(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		user, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
 			return
 		}
 
 		var lastActivity string
-		err = db.QueryRow(
-			"SELECT MAX(created_at) FROM ("+
-				"SELECT created_at FROM transactions "+
-				"WHERE user_id = ? "+
-				"UNION SELECT created_at FROM loans "+
-				"WHERE debtor_id = ? OR creditor_id = ?"+
-				")",
-			user.ID,
-			user.ID,
+		err := db.QueryRow(
+			"SELECT MAX(created_at) FROM transactions WHERE user_id = ?",
 			user.ID,
 		).Scan(&lastActivity)
 
@@ -126,421 +154,182 @@ func UserDelete(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		if lastActivity != "" {
 			lastTime, err := time.Parse(time.RFC3339, lastActivity)
 
-			if err == nil && time.Since(lastTime) < (24*30*24*time.Hour) {
-				util.WriteJSONError(w, "User has recent activity", http.StatusBadRequest)
+			if err == nil && time.Since(lastTime) < (30*24*time.Hour) {
+				util.WriteJSONError(w, errUserStillActive)
 				return
 			}
 		}
 
-		var totalUroLoans int64
-		var totalUraLoans int64
-
-		err = db.QueryRow(
-			"SELECT COALESCE(SUM(amount),0) FROM loans "+
-				"WHERE debtor_id = ? AND loan_type = 'uro' AND status = 'accepted'",
-			user.ID,
-		).Scan(&totalUroLoans)
-
-		if err != nil {
-			util.WriteJSONError(w, "Error checking loans", http.StatusInternalServerError)
-			return
-		}
-
-		err = db.QueryRow(
-			"SELECT COALESCE(SUM(amount),0) FROM loans "+
-				"WHERE debtor_id = ? AND loan_type = 'ura' AND status = 'accepted'",
-			user.ID,
-		).Scan(&totalUraLoans)
-
-		if err != nil {
-			util.WriteJSONError(w, "Error checking loans", http.StatusInternalServerError)
-			return
-		}
-
-		if totalUroLoans > 5 || totalUraLoans > 0 {
-			util.WriteJSONError(w, "User does not meet deletion criteria", http.StatusBadRequest)
-			return
-		}
-
 		stmt, err := db.Prepare("DELETE FROM users WHERE id = ?")
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 		defer stmt.Close()
 
 		_, err = stmt.Exec(user.ID)
 		if err != nil {
-			util.WriteJSONError(w, "Error deleting user", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
-		util.WriteJSON(w, map[string]string{"status": "user deleted"})
+		util.WriteJSON(w, map[string]string{"status": "ok"})
 	}
 }
 
-func LoanRequest(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+func PaymentProcess(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		debtor, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		payer, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
 			return
 		}
 
 		var req struct {
-			CreditorIdentifier string  `json:"creditor_identifier"`
-			Amount             float64 `json:"amount"`
-			LoanType           string  `json:"loan_type"`
-			TimeSpanDays       int     `json:"timespan_days"`
-			PaymentType        string  `json:"payment_type"`
+			TransactionID string `json:"transaction_id"`
 		}
 
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request body", http.StatusBadRequest)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		var creditorID int64
-		err = db.QueryRow(
-			"SELECT id FROM users WHERE identifier = ?",
-			req.CreditorIdentifier,
-		).Scan(&creditorID)
-
-		if err != nil {
-			util.WriteJSONError(w, "Creditor not found", http.StatusBadRequest)
+		if req.TransactionID == "" {
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		loanID, err := util.GenerateRandomIdentifier(256)
-		if err != nil {
-			util.WriteJSONError(w, "Error generating loan ID", http.StatusInternalServerError)
+		if !util.ValidateTransactionID(req.TransactionID) {
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		stmt, err := db.Prepare(
-			"INSERT INTO loans " +
-				"(loan_id, debtor_id, creditor_id, amount, loan_type, " +
-				"timespan, payment_type, status, created_at) " +
-				"VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
-		)
+		var amount float64
+		var recipientID int64
+
+		err := db.QueryRow(
+			`SELECT amount, user_id FROM transactions
+			 WHERE transaction_id = ? AND category = 'payment_request'`,
+			req.TransactionID,
+		).Scan(&amount, &recipientID)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		now := time.Now().UTC().Format(time.RFC3339)
-		_, err = stmt.Exec(
-			loanID,
-			debtor.ID,
-			creditorID,
-			req.Amount,
-			req.LoanType,
-			req.TimeSpanDays,
-			req.PaymentType,
-			now,
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Error creating loan request", http.StatusInternalServerError)
+			util.WriteJSONError(w, errPaymentRequestNotFound)
 			return
 		}
 
-		message := fmt.Sprintf("Loan request %s from user %s", loanID, debtor.Identifier)
-		stmt2, err := db.Prepare(
-			"INSERT INTO notifications " +
-				"(user_id, message, created_at) VALUES (?, ?, ?)",
-		)
-
-		if err == nil {
-			stmt2.Exec(creditorID, message, now)
-			stmt2.Close()
-		}
-
-		util.WriteJSON(w, map[string]string{
-			"status":  "loan request created",
-			"loan_id": loanID,
-		})
-	}
-}
-
-func LoanAccept(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		if recipientID == payer.ID {
+			util.WriteJSONError(w, errCannotPayOwnAccount)
 			return
 		}
 
-		creditor, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		if payer.BalanceUra < amount {
+			util.WriteJSONError(w, errInsufficientFunds)
 			return
 		}
 
-		var req struct {
-			LoanID string `json:"loan_id"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		var dbCreditorID int64
-		err = db.QueryRow(
-			"SELECT creditor_id FROM loans WHERE loan_id = ? AND status = 'pending'",
-			req.LoanID,
-		).Scan(&dbCreditorID)
-
-		if err != nil {
-			util.WriteJSONError(w, "Loan not found or not pending", http.StatusBadRequest)
-			return
-		}
-
-		if dbCreditorID != creditor.ID {
-			util.WriteJSONError(w, "Unauthorized: not the creditor", http.StatusUnauthorized)
-			return
-		}
-
-		stmt, err := db.Prepare("UPDATE loans SET status = 'accepted' WHERE loan_id = ?")
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(req.LoanID)
-		if err != nil {
-			util.WriteJSONError(w, "Error updating loan status", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{"status": "loan accepted"})
-	}
-}
-
-func LoanReject(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		creditor, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			LoanID        string `json:"loan_id"`
-			RejectionCode string `json:"rejection_code"`
-			Message       string `json:"message"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		var dbCreditorID int64
-		err = db.QueryRow(
-			"SELECT creditor_id FROM loans WHERE loan_id = ? AND status = 'pending'",
-			req.LoanID,
-		).Scan(&dbCreditorID)
-
-		if err != nil {
-			util.WriteJSONError(w, "Loan not found or not pending", http.StatusBadRequest)
-			return
-		}
-
-		if dbCreditorID != creditor.ID {
-			util.WriteJSONError(w, "Unauthorized: not the creditor", http.StatusUnauthorized)
-			return
-		}
-
-		newStatus := "rejected:" + req.RejectionCode + ":" + req.Message
-		stmt, err := db.Prepare("UPDATE loans SET status = ? WHERE loan_id = ?")
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(newStatus, req.LoanID)
-		if err != nil {
-			util.WriteJSONError(w, "Error updating loan status", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{"status": "loan rejected"})
-	}
-}
-
-func PaymentTransaction(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		payer, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			RecipientIdentifier string  `json:"recipient_identifier"`
-			Amount              float64 `json:"amount"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		if payer.BalanceUra < req.Amount {
-			util.WriteJSONError(w, "Insufficient funds", http.StatusBadRequest)
+		if amount > 100000 {
+			util.WriteJSONError(w, errPaymentExceeds100kUro)
 			return
 		}
 		twoBusinessDaysAgo := time.Now().Add(-48 * time.Hour)
 
-		var receivedSum int64
+		var receivedSum float64
 		err = db.QueryRow(
-			"SELECT COALESCE(SUM(amount),0) FROM transactions "+
-				"WHERE user_id = ? AND created_at > ? AND category = 'incoming'",
-			payer.ID, twoBusinessDaysAgo.Format(time.RFC3339),
+			`SELECT COALESCE(SUM(amount), 0) FROM transactions 
+			 WHERE user_id = ? AND created_at > ? AND category = 'incoming' AND processed = 1`,
+			recipientID, twoBusinessDaysAgo.Format(time.RFC3339),
 		).Scan(&receivedSum)
 
-		if err == nil && receivedSum >= 50000 {
-			util.WriteJSONError(w, "Received funds limit exceeded in past 2 business days", http.StatusBadRequest)
-			return
-		}
-
-		if req.Amount > 2000 {
-			var totalLoans int64
-			err = db.QueryRow(
-				"SELECT COALESCE(SUM(amount),0) FROM loans "+
-					"WHERE debtor_id = ? AND status = 'accepted' AND loan_type = 'uro'",
-				payer.ID,
-			).Scan(&totalLoans)
-
-			if err == nil && totalLoans > 5000 {
-				util.WriteJSONError(w, "Loan limit exceeded for payments over 2k", http.StatusBadRequest)
-				return
-			}
-		}
-
-		if req.Amount > 200000 {
-			util.WriteJSONError(w, "Payment amount exceeds 200k uro", http.StatusBadRequest)
-			return
-		}
-
-		var recipientID int64
-		err = db.QueryRow(
-			"SELECT id FROM users WHERE identifier = ?",
-			req.RecipientIdentifier,
-		).Scan(&recipientID)
-
 		if err != nil {
-			util.WriteJSONError(w, "Recipient not found", http.StatusBadRequest)
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
+
+		if receivedSum >= 50000 {
+			util.WriteJSONError(w, errExceededReceivedFunds)
 			return
 		}
 
 		tx, err := db.Begin()
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-
-		_, err = tx.Exec(
-			"UPDATE users SET balance_ura = balance_ura - ? WHERE id = ?",
-			req.Amount,
-			payer.ID,
-		)
-
-		if err != nil {
-			tx.Rollback()
-			util.WriteJSONError(w, "Error updating payer balance", http.StatusInternalServerError)
-
-			return
-		}
-
-		_, err = tx.Exec(
-			"UPDATE users SET balance_ura = balance_ura + ? WHERE id = ?",
-			req.Amount,
-			recipientID,
-		)
-
-		if err != nil {
-			tx.Rollback()
-			util.WriteJSONError(w, "Error updating recipient balance", http.StatusInternalServerError)
-
-			return
-		}
-
-		transactionID, err := util.GenerateRandomIdentifier(256)
-		if err != nil {
-			tx.Rollback()
-			util.WriteJSONError(w, "Error generating transaction ID", http.StatusInternalServerError)
-
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		now := time.Now().UTC().Format(time.RFC3339)
-		_, err = tx.Exec(
-			"INSERT INTO transactions (transaction_id, user_id, category, amount, created_at) "+
-				"VALUES (?, ?, 'outgoing', ?, ?)",
-			transactionID,
-			payer.ID,
-			req.Amount,
-			now,
+		res, err := tx.Exec(
+			`UPDATE transactions 
+			 SET processed = 1
+			 WHERE transaction_id = ? AND category = 'payment_request' AND processed = 0`,
+			req.TransactionID,
 		)
 
 		if err != nil {
 			tx.Rollback()
-			util.WriteJSONError(w, "Error recording transaction", http.StatusInternalServerError)
-
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
-		_, err = tx.Exec(
-			"INSERT INTO transactions (transaction_id, user_id, category, amount, created_at) "+
-				"VALUES (?, ?, 'incoming', ?, ?)",
-			transactionID,
-			recipientID,
-			req.Amount,
-			now,
-		)
-
+		rowsAffected, err := res.RowsAffected()
 		if err != nil {
 			tx.Rollback()
-			util.WriteJSONError(w, "Error recording transaction", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 
 			return
 		}
 
-		err = tx.Commit()
-		if err != nil {
-			util.WriteJSONError(w, "Error finalizing transaction", http.StatusInternalServerError)
+		if rowsAffected == 0 {
+			tx.Rollback()
+			util.WriteJSONError(w, errPaymentAlreadyProcessed)
+
+			return
+		}
+
+		if _, err = tx.Exec(
+			"UPDATE users SET balance_ura = balance_ura - ? WHERE id = ?",
+			amount, payer.ID,
+		); err != nil {
+			tx.Rollback()
+			util.WriteJSONError(w, errInternalErrorOccurred)
+
+			return
+		}
+
+		if _, err = tx.Exec(
+			"UPDATE users SET balance_ura = balance_ura + ? WHERE id = ?",
+			amount, recipientID,
+		); err != nil {
+			tx.Rollback()
+			util.WriteJSONError(w, errInternalErrorOccurred)
+
+			return
+		}
+
+		if _, err = tx.Exec(
+			`INSERT INTO transactions (transaction_id, user_id, category, amount, created_at, processed)
+			 VALUES (?, ?, 'incoming', ?, ?, 1)`,
+			req.TransactionID, recipientID, amount, now,
+		); err != nil {
+			tx.Rollback()
+			util.WriteJSONError(w, errInternalErrorOccurred)
+
+			return
+		}
+
+		if err = tx.Commit(); err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		util.WriteJSON(w, map[string]string{
-			"status":         "payment transaction successful",
-			"transaction_id": transactionID,
+			"status":         "ok",
+			"transaction_id": req.TransactionID,
 		})
 	}
 }
@@ -548,214 +337,13 @@ func PaymentTransaction(db *sql.DB) func(w http.ResponseWriter, r *http.Request)
 func PaymentRequest(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			Amount float64 `json:"amount"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		if req.Amount > 100000 {
-			util.WriteJSONError(w, "Payment request cannot be more than 100k uro", http.StatusBadRequest)
-			return
-		}
-
-		transactionID, err := util.GenerateRandomIdentifier(256)
-		if err != nil {
-			util.WriteJSONError(w, "Error generating transaction ID", http.StatusInternalServerError)
-			return
-		}
-
-		now := time.Now().UTC().Format(time.RFC3339)
-		stmt, err := db.Prepare(
-			"INSERT INTO transactions (transaction_id, user_id, category, amount, created_at) " +
-				"VALUES (?, ?, 'payment_request', ?, ?)",
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(transactionID, user.ID, req.Amount, now)
-		if err != nil {
-			util.WriteJSONError(w, "Error recording payment request", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{
-			"status":         "payment request recorded",
-			"transaction_id": transactionID,
-		})
-	}
-}
-
-func RefundRequest(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		_, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			LoanID string `json:"loan_id"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		refundID, err := util.GenerateRandomIdentifier(256)
-		if err != nil {
-			util.WriteJSONError(w, "Error generating refund ID", http.StatusInternalServerError)
-			return
-		}
-
-		now := time.Now().UTC().Format(time.RFC3339)
-		stmt, err := db.Prepare(
-			"INSERT INTO refunds (refund_id, loan_id, status, created_at) " +
-				"VALUES (?, ?, 'pending', ?)",
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(refundID, req.LoanID, now)
-		if err != nil {
-			util.WriteJSONError(w, "Error creating refund request", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{
-			"status":    "refund request created",
-			"refund_id": refundID,
-		})
-	}
-}
-
-func RefundReject(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		_, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			RefundID string `json:"refund_id"`
-			Message  string `json:"message"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		stmt, err := db.Prepare("UPDATE refunds SET status = ? WHERE refund_id = ?")
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		newStatus := "rejected:" + req.Message
-		_, err = stmt.Exec(newStatus, req.RefundID)
-
-		if err != nil {
-			util.WriteJSONError(w, "Error updating refund request", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{
-			"status": "refund request rejected",
-		})
-	}
-}
-
-func RefundProcess(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		_, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		var req struct {
-			RefundID string `json:"refund_id"`
-		}
-
-		err = json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		stmt, err := db.Prepare(
-			"UPDATE refunds SET status = 'processed' WHERE refund_id = ?",
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(req.RefundID)
-		if err != nil {
-			util.WriteJSONError(w, "Error processing refund", http.StatusInternalServerError)
-			return
-		}
-
-		util.WriteJSON(w, map[string]string{"status": "refund processed"})
-	}
-}
-
-func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		user, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
 			return
 		}
 
@@ -763,33 +351,103 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			Amount string `json:"amount"`
 		}
 
-		err = json.NewDecoder(r.Body).Decode(&req)
+		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		if !util.ValidateNumbers(req.Amount) {
-			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidAmountValue)
 			return
 		}
 
 		amount, err := strconv.ParseFloat(req.Amount, 64)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidAmountValue)
+			return
+		}
+
+		if amount > 100000 {
+			util.WriteJSONError(w, errPaymentExceeds100kUro)
+			return
+		}
+
+		transactionID, err := util.GenerateRandomIdentifier(256)
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
+
+		now := time.Now().UTC().Format(time.RFC3339)
+		stmt, err := db.Prepare(
+			"INSERT INTO transactions (transaction_id, user_id, category, amount, created_at, processed) " +
+				"VALUES (?, ?, 'payment_request', ?, ?, 0)",
+		)
+
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
+		defer stmt.Close()
+
+		_, err = stmt.Exec(transactionID, user.ID, amount, now)
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
+
+		util.WriteJSON(w, map[string]string{
+			"status":         "ok",
+			"transaction_id": transactionID,
+		})
+	}
+}
+
+func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			util.WriteJSONError(w, errInvalidRequest)
+			return
+		}
+
+		user, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
+			return
+		}
+
+		var req struct {
+			Amount string `json:"amount"`
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			util.WriteJSONError(w, errInvalidRequest)
+			return
+		}
+
+		if !util.ValidateNumbers(req.Amount) {
+			util.WriteJSONError(w, errInvalidAmountValue)
+			return
+		}
+
+		amount, err := strconv.ParseFloat(req.Amount, 64)
+		if err != nil {
+			util.WriteJSONError(w, errInvalidAmountValue)
 			return
 		}
 
 		if amount <= 0 {
-			util.WriteJSONError(w, "Withdraw amount cannot be zero or negative value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidWithdrawAmount)
 			return
-		} else if amount >= 100000 {
-			util.WriteJSONError(w, "Withdraw amount must be less than 50k uro", http.StatusBadRequest)
+		} else if amount >= 50000 {
+			util.WriteJSONError(w, errInvalidWithdrawAmountExceeds50kUro)
 			return
 		}
 		twoBusinessDaysAgo := time.Now().Add(-48 * time.Hour)
 
-		var receivedSum int64
+		var receivedSum float64
 		err = db.QueryRow(
 			"SELECT COALESCE(SUM(amount),0) FROM transactions "+
 				"WHERE user_id = ? AND created_at > ? AND category = 'incoming'",
@@ -801,7 +459,6 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			util.WriteJSONError(
 				w,
 				"Cannot withdraw after receiving 50k uro in past 2 business days",
-				http.StatusBadRequest,
 			)
 			return
 		}
@@ -813,18 +470,18 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		).Scan(&balanceUra)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		if balanceUra < amount {
-			util.WriteJSONError(w, "Insufficient funds", http.StatusBadRequest)
+			util.WriteJSONError(w, errInsufficientFunds)
 			return
 		}
 
 		transactionID, err := util.GenerateRandomIdentifier(256)
 		if err != nil {
-			util.WriteJSONError(w, "Error generating transaction ID", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
@@ -835,15 +492,19 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
-		stmt2.Exec(transactionID, user.ID, amount, now)
-		stmt2.Close()
+		_, err = stmt2.Exec(transactionID, user.ID, amount, now)
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
 
+		stmt2.Close()
 		util.WriteJSON(w, map[string]string{
-			"status":         "200",
+			"status":         "ok",
 			"transaction_id": transactionID,
 		})
 	}
@@ -852,13 +513,13 @@ func Withdraw(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		user, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
 			return
 		}
 
@@ -866,28 +527,28 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			Amount string `json:"amount"`
 		}
 
-		err = json.NewDecoder(r.Body).Decode(&req)
+		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		if !util.ValidateNumbers(req.Amount) {
-			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidAmountValue)
 			return
 		}
 
 		amount, err := strconv.ParseFloat(req.Amount, 64)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid amount value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidAmountValue)
 			return
 		}
 
 		if amount <= 0 {
-			util.WriteJSONError(w, "Cash in amount cannot be zero or negative value", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidCashInAmount)
 			return
 		} else if amount >= 100000 {
-			util.WriteJSONError(w, "Cash in amount must be less than 100k uro", http.StatusBadRequest)
+			util.WriteJSONError(w, errCashInAmountExceeds100kUro)
 			return
 		}
 
@@ -902,14 +563,14 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			lastCashIn, err := time.Parse(time.RFC3339, lastCashInStr)
 
 			if err == nil && time.Since(lastCashIn) < 12*time.Hour {
-				util.WriteJSONError(w, "Cash in allowed only every 12 hours", http.StatusBadRequest)
+				util.WriteJSONError(w, errCashInEveryIn12Hours)
 				return
 			}
 		}
 
 		transactionID, err := util.GenerateRandomIdentifier(256)
 		if err != nil {
-			util.WriteJSONError(w, "Error generating transaction ID", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
@@ -920,15 +581,19 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
-		stmt2.Exec(transactionID, user.ID, amount, now)
-		stmt2.Close()
+		_, err = stmt2.Exec(transactionID, user.ID, amount, now)
+		if err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
+			return
+		}
 
+		stmt2.Close()
 		util.WriteJSON(w, map[string]string{
-			"status":         "200",
+			"status":         "ok",
 			"transaction_id": transactionID,
 		})
 	}
@@ -937,7 +602,7 @@ func CashIn(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
@@ -948,12 +613,17 @@ func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			util.WriteJSONError(w, "Invalid request", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidRequest)
+			return
+		}
+
+		if !util.ValidateUsername(req.Username) {
+			util.WriteJSONError(w, errInvalidLoginCredentials)
 			return
 		}
 
 		if !util.IsValidSHA512(req.Password) {
-			util.WriteJSONError(w, "Password is not a valid SHA-512", http.StatusBadRequest)
+			util.WriteJSONError(w, errInvalidLoginCredentials)
 			return
 		}
 
@@ -976,13 +646,13 @@ func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Invalid credentials", http.StatusUnauthorized)
+			util.WriteJSONError(w, errInvalidLoginCredentials)
 			return
 		}
 
 		sessionToken, err := util.GenerateRandomIdentifier(256)
 		if err != nil {
-			util.WriteJSONError(w, "Error generating session token", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
@@ -990,19 +660,19 @@ func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		stmt, err := db.Prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)")
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 		defer stmt.Close()
 
 		_, err = stmt.Exec(sessionToken, user.ID, expiresAt)
 		if err != nil {
-			util.WriteJSONError(w, "Error creating session", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		util.WriteJSON(w, map[string]string{
-			"status":        "200",
+			"status":        "ok",
 			"session_token": sessionToken,
 			"security_code": user.SecurityCode,
 		})
@@ -1012,13 +682,13 @@ func UserLogin(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
+		user, authErr := authenticate(db, r)
+		if authErr != "" {
+			util.WriteJSONError(w, authErr)
 			return
 		}
 
@@ -1029,7 +699,7 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		)
 
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 		defer rows.Close()
@@ -1040,7 +710,12 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			var processed int
 			var amount float64
 
-			rows.Scan(&tid, &category, &amount, &createdAt, &processed)
+			err = rows.Scan(&tid, &category, &amount, &createdAt, &processed)
+			if err != nil {
+				util.WriteJSONError(w, errInternalErrorOccurred)
+				return
+			}
+
 			transactions = append(transactions, map[string]interface{}{
 				"transaction_id": tid,
 				"category":       category,
@@ -1050,50 +725,14 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			})
 		}
 
-		rows2, err := db.Query(
-			"SELECT loan_id, amount, loan_type, timespan, payment_type, status, created_at "+
-				"FROM loans WHERE debtor_id = ? OR creditor_id = ?",
-			user.ID,
-			user.ID,
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+		if err = rows.Err(); err != nil {
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
-		}
-		defer rows2.Close()
-
-		var loans []map[string]interface{}
-		for rows2.Next() {
-			var loanID, loanType, paymentType, status, createdAt string
-			var amount int64
-			var timespan int
-
-			rows2.Scan(
-				&loanID,
-				&amount,
-				&loanType,
-				&timespan,
-				&paymentType,
-				&status,
-				&createdAt,
-			)
-
-			loans = append(loans, map[string]interface{}{
-				"loan_id":      loanID,
-				"amount":       amount,
-				"loan_type":    loanType,
-				"timespan":     timespan,
-				"payment_type": paymentType,
-				"status":       status,
-				"created_at":   createdAt,
-			})
 		}
 
 		util.WriteJSON(w, map[string]interface{}{
 			"user":         user,
 			"transactions": transactions,
-			"loans":        loans,
 		})
 	}
 }
@@ -1101,82 +740,30 @@ func UserFetchInfo(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func UserLogout(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		sessionToken := r.Header.Get("X-Session-Token")
 		if sessionToken == "" {
-			util.WriteJSONError(w, "Missing session token", http.StatusUnauthorized)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		stmt, err := db.Prepare("DELETE FROM sessions WHERE token = ?")
 		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		_, err = stmt.Exec(sessionToken)
 		if err != nil {
-			util.WriteJSONError(w, "Error logging out", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
 		util.WriteJSON(w, map[string]string{
-			"status": "logout successful",
-		})
-	}
-}
-
-func UserFetchNotifications(db *sql.DB) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		user, err := authenticate(db, r)
-		if err != nil {
-			util.WriteJSONError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		rows, err := db.Query(
-			"SELECT id, message, created_at, is_read "+
-				"FROM notifications WHERE user_id = ? AND is_read = 0",
-			user.ID,
-		)
-
-		if err != nil {
-			util.WriteJSONError(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		defer rows.Close()
-
-		var notifications []map[string]interface{}
-		for rows.Next() {
-			var id int64
-			var message, createdAt string
-			var isRead int
-
-			rows.Scan(&id, &message, &createdAt, &isRead)
-			notifications = append(notifications, map[string]interface{}{
-				"id":         id,
-				"message":    message,
-				"created_at": createdAt,
-				"is_read":    isRead,
-			})
-		}
-
-		stmt, err := db.Prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?")
-		if err == nil {
-			stmt.Exec(user.ID)
-			stmt.Close()
-		}
-
-		util.WriteJSON(w, map[string]interface{}{
-			"notifications": notifications,
+			"status": "ok",
 		})
 	}
 }
@@ -1184,18 +771,18 @@ func UserFetchNotifications(db *sql.DB) func(http.ResponseWriter, *http.Request)
 func ValidateSession(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			util.WriteJSONError(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		sessionToken := r.Header.Get("X-Session-Token")
 		if sessionToken == "" {
-			util.WriteJSONError(w, "Missing session token", http.StatusUnauthorized)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		if !util.ValidateSessionToken(sessionToken) {
-			util.WriteJSONError(w, "Mission session token", http.StatusUnauthorized)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
@@ -1208,13 +795,13 @@ func ValidateSession(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 		).Scan(&userID, &expiresAtStr)
 
 		if err != nil {
-			util.WriteJSONError(w, "Invalid session token", http.StatusUnauthorized)
+			util.WriteJSONError(w, errInvalidRequest)
 			return
 		}
 
 		expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 		if err != nil {
-			util.WriteJSONError(w, "Session time parse error", http.StatusInternalServerError)
+			util.WriteJSONError(w, errInternalErrorOccurred)
 			return
 		}
 
@@ -1224,13 +811,13 @@ func ValidateSession(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 				"DELETE FROM sessions WHERE token = ?",
 				sessionToken,
 			); err != nil {
-				util.WriteJSONError(w, "Internal error occured", http.StatusUnauthorized)
+				util.WriteJSONError(w, errInternalErrorOccurred)
 				return
 			}
 		}
 
 		util.WriteJSON(w, map[string]interface{}{
-			"status":     "200",
+			"status":     "ok",
 			"user_id":    strconv.FormatInt(userID, 10),
 			"expired":    strconv.FormatBool(hasExpired),
 			"expires_at": expiresAtStr,
