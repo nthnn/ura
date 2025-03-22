@@ -3,26 +3,46 @@
 
 package main
 
-import "syscall/js"
+import (
+	"syscall/js"
+)
+
+var sessionStorage js.Value = js.Global().Get("sessionStorage")
+
+func isSessionStorageSupported() bool {
+	return !sessionStorage.IsNull() && !sessionStorage.IsUndefined()
+}
 
 func setSessionKey(key, value string) {
-	js.Global().Get("sessionStorage").Call("setItem", key, value)
+	if isSessionStorageSupported() {
+		sessionStorage.Call("setItem", key, value)
+	}
 }
 
 func getSessionKey(key string) string {
-	val := js.Global().Get("sessionStorage").Call("getItem", key)
-	if val.IsNull() || val.IsUndefined() {
-		return ""
+	if isSessionStorageSupported() {
+		val := sessionStorage.Call("getItem", key)
+		if val.IsNull() || val.IsUndefined() {
+			return ""
+		}
+
+		return val.String()
 	}
 
-	return val.String()
+	return ""
 }
 
 func hasSessionKey(key string) bool {
-	val := js.Global().Get("sessionStorage").Call("getItem", key)
-	return !val.IsNull() && !val.IsUndefined()
+	if isSessionStorageSupported() {
+		val := sessionStorage.Call("getItem", key)
+		return !val.IsNull() && !val.IsUndefined()
+	}
+
+	return false
 }
 
 func removeSessionKey(key string) {
-	js.Global().Get("sessionStorage").Call("removeItem", key)
+	if isSessionStorageSupported() {
+		sessionStorage.Call("removeItem", key)
+	}
 }
