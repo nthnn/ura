@@ -45,6 +45,8 @@ func checkSessionKey() {
 			}
 		}()
 	} else {
+		wg.Done()
+
 		removeSessionKey("session_token")
 		removeSessionKey("security_code")
 
@@ -55,7 +57,7 @@ func checkSessionKey() {
 }
 
 func periodicSessionValidation() {
-	if hasSessionKey("session_token") || hasSessionKey("security_code") {
+	if hasSessionKey("session_token") && hasSessionKey("security_code") {
 		go func() {
 			status, _, content := sendPost(
 				"/api/user/session",
