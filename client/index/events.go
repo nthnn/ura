@@ -19,6 +19,11 @@ func loginEvent(this js.Value, args []js.Value) interface{} {
 		return nil
 	}
 
+	if password == "" {
+		showError("login-error", "Password cannot be empty.")
+		return nil
+	}
+
 	go login(username, password)
 	return nil
 }
@@ -69,54 +74,37 @@ func installOffcanvasListeners() {
 		"getElementById",
 		"login-offcanvas",
 	)
-	loginOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"login-username",
-		).Set("value", "")
 
-		document.Call(
-			"getElementById",
-			"login-password",
-		).Set("value", "")
-		return nil
-	})
+	if !loginOffcanvas.IsUndefined() && !loginOffcanvas.IsNull() {
+		loginOffcanvas.Call(
+			"addEventListener",
+			"hidden.bs.offcanvas",
+			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				setInputValue("login-username", "")
+				setInputValue("login-password", "")
+
+				return nil
+			}),
+		)
+	}
 
 	signupOffcanvas := document.Call(
 		"getElementById",
 		"signup-offcanvas",
 	)
-	signupOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"signup-username",
-		).Set("value", "")
 
-		document.Call(
-			"getElementById",
-			"signup-email",
-		).Set("value", "")
+	if !signupOffcanvas.IsUndefined() && !signupOffcanvas.IsNull() {
+		signupOffcanvas.Call(
+			"addEventListener",
+			"hidden.bs.offcanvas",
+			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				setInputValue("signup-username", "")
+				setInputValue("signup-email", "")
+				setInputValue("signup-password", "")
+				setInputValue("signup-password-confirm", "")
 
-		document.Call(
-			"getElementById",
-			"signup-password",
-		).Set("value", "")
-
-		document.Call(
-			"getElementById",
-			"signup-password-confirm",
-		).Set("value", "")
-		return nil
-	})
-
-	loginOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		loginOffcanvasCloseCallback,
-	)
-	signupOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		signupOffcanvasCloseCallback,
-	)
+				return nil
+			}),
+		)
+	}
 }
