@@ -14,10 +14,12 @@
         ],
         "build-server": [
             "mkdir -p dist",
+            "mkdir -p dist/db",
             "cd server",
             "go build -tags netgo,osusergo -ldflags \"-s -w\" -o ../dist/ura github.com/nthnn/ura",
             "cp -r ../public ../dist/",
-            "cd .."
+            "cd ..",
+            "cp config.json dist/"
         ],
         "build-site": [
             "mkdir -p dist/public/asm",
