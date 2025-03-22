@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"syscall/js"
+	"time"
 )
 
 func sendPost(
@@ -39,50 +40,89 @@ func sendPost(
 
 	thenFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		resCh <- args[0]
-		close(resCh)
-
 		return nil
 	})
 	catchFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		errCh <- errors.New(args[0].String())
-		close(errCh)
-
 		return nil
 	})
-	fetchPromise.Call("then", thenFunc).Call("catch", catchFunc)
 
-	var res js.Value
+	fetchPromise.Call(
+		"then",
+		thenFunc,
+	).Call(
+		"catch",
+		catchFunc,
+	)
+
 	select {
-	case res = <-resCh:
+	case res := <-resCh:
+		thenFunc.Release()
+		catchFunc.Release()
+
+		status = res.Get("status").Int()
+		contentType = res.Get("headers").Call(
+			"get",
+			"Content-Type",
+		).String()
+
+		textPromise := res.Call("text")
+		textCh := make(chan js.Value)
+
+		thenFuncText := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			textCh <- args[0]
+			return nil
+		})
+
+		catchFuncText := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			errCh <- errors.New(args[0].String())
+			return nil
+		})
+
+		textPromise.Call(
+			"then",
+			thenFuncText,
+		).Call(
+			"catch",
+			catchFuncText,
+		)
+
+		select {
+		case textRes := <-textCh:
+			thenFuncText.Release()
+			catchFuncText.Release()
+
+			if textRes.Type() != js.TypeString {
+				responseText = js.Global().Get("JSON").Call("stringify", textRes).String()
+			} else {
+				responseText = textRes.String()
+			}
+
+		case err := <-errCh:
+			thenFuncText.Release()
+			catchFuncText.Release()
+
+			return 0, "", err.Error()
+
+		case <-time.After(10 * time.Second):
+			thenFuncText.Release()
+			catchFuncText.Release()
+
+			return 0, "", "Timeout waiting for text response."
+		}
+
+		return status, contentType, responseText
+
 	case err := <-errCh:
 		thenFunc.Release()
 		catchFunc.Release()
 
 		return 0, "", err.Error()
+
+	case <-time.After(10 * time.Second):
+		thenFunc.Release()
+		catchFunc.Release()
+
+		return 0, "", "Timeout waiting for fetch response."
 	}
-
-	thenFunc.Release()
-	catchFunc.Release()
-
-	status = res.Get("status").Int()
-	contentType = res.Get("headers").Call("get", "Content-Type").String()
-
-	textPromise := res.Call("text")
-	textCh := make(chan js.Value)
-	thenFuncText := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		textCh <- args[0]
-		return nil
-	})
-
-	textPromise.Call("then", thenFuncText)
-	textRes := <-textCh
-	thenFuncText.Release()
-
-	if textRes.Type() != js.TypeString {
-		responseText = js.Global().Get("JSON").Call("stringify", textRes).String()
-	} else {
-		responseText = textRes.String()
-	}
-
-	return status, contentType, responseText
 }
