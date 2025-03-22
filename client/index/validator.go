@@ -9,16 +9,12 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 )
 
-func validateUsername(username string) bool {
-	usernameRegex := regexp.MustCompile(`^[\p{L}\p{N}_\.]+$`)
-	if utf8.RuneCountInString(username) == 0 || utf8.RuneCountInString(username) > 72 {
-		return false
-	}
+var usernameRegex *regexp.Regexp = regexp.MustCompile(`^[\p{L}\p{N}_.]+$`)
 
-	return usernameRegex.MatchString(username)
+func validateUsername(username string) bool {
+	return len(username) > 6 && usernameRegex.MatchString(username)
 }
 
 func validateEmail(email string) bool {
