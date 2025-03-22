@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"html"
 	"image/color"
 	"syscall/js"
 
@@ -15,15 +16,26 @@ import (
 
 var document = js.Global().Get("document")
 
+func setInputValue(id string, value string) {
+	element := document.Call("getElementById", id)
+	if !element.IsUndefined() && !element.IsNull() {
+		element.Set("value", value)
+	}
+}
+
 func showError(errorId string, message string) {
 	errorText := js.Global().Get("document").Call(
 		"getElementById",
 		errorId,
 	)
 
+	if errorText.IsUndefined() || errorText.IsNull() {
+		return
+	}
+
 	errorText.Get("classList").Call("remove", "d-none")
 	errorText.Get("classList").Call("add", "d-block")
-	errorText.Set("innerHTML", message)
+	errorText.Set("innerHTML", html.EscapeString(message))
 
 	var hideAfter2Secs js.Func
 	hideAfter2Secs = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -46,6 +58,10 @@ func hideError(errorId string) {
 		errorId,
 	)
 
+	if errorText.IsUndefined() || errorText.IsNull() {
+		return
+	}
+
 	errorText.Get("classList").Call("remove", "d-block")
 	errorText.Get("classList").Call("add", "d-none")
 	errorText.Set("innerHTML", "")
@@ -56,10 +72,19 @@ func showLoading(name string) {
 		"getElementById",
 		name+"-text",
 	)
+
+	if text.IsUndefined() || text.IsNull() {
+		return
+	}
+
 	loading := js.Global().Get("document").Call(
 		"getElementById",
 		name+"-loading",
 	)
+
+	if loading.IsUndefined() || loading.IsNull() {
+		return
+	}
 
 	text.Get("classList").Call("remove", "d-block")
 	text.Get("classList").Call("add", "d-none")
@@ -73,10 +98,19 @@ func hideLoading(name string) {
 		"getElementById",
 		name+"-text",
 	)
+
+	if text.IsUndefined() || text.IsNull() {
+		return
+	}
+
 	loading := js.Global().Get("document").Call(
 		"getElementById",
 		name+"-loading",
 	)
+
+	if loading.IsUndefined() || loading.IsNull() {
+		return
+	}
 
 	text.Get("classList").Call("remove", "d-none")
 	text.Get("classList").Call("add", "d-block")
@@ -134,6 +168,9 @@ func disableContextPopup() {
 
 func disableTextSelection() {
 	style := document.Get("body").Get("style")
+	if style.IsUndefined() || style.IsNull() {
+		return
+	}
 
 	style.Set("userSelect", "none")
 	style.Set("-webkit-user-select", "none")
@@ -200,10 +237,10 @@ func generateQRCode(id string, data string) error {
 }
 
 func showActualContent() {
-	document.Call(
-		"getElementById",
+	setInputValue(
 		"card-security-code",
-	).Set("value", getSessionKey("security_code"))
+		getSessionKey("security_code"),
+	)
 
 	js.Global().Call(
 		"setTimeout",
@@ -212,20 +249,34 @@ func showActualContent() {
 				"getElementById",
 				"loading-content",
 			)
+
+			if loadingContent.IsNull() || loadingContent.IsUndefined() {
+				return nil
+			}
+
 			actualContent := document.Call(
 				"getElementById",
 				"actual-content",
 			)
+
+			if actualContent.IsNull() || actualContent.IsUndefined() {
+				return nil
+			}
+
 			navBar := document.Call(
 				"getElementById",
 				"navigation-bar",
 			)
 
+			if navBar.IsNull() || navBar.IsUndefined() {
+				return nil
+			}
+
 			loadingContent.Get("classList").Call("add", "d-none")
 			actualContent.Get("classList").Call("remove", "d-none")
 			actualContent.Get("classList").Call("add", "d-block")
-			navBar.Get("classList").Call("remove", "d-none")
 
+			navBar.Get("classList").Call("remove", "d-none")
 			return nil
 		}),
 		3000,
@@ -237,76 +288,77 @@ func installOffcanvasListeners() {
 		"getElementById",
 		"cash-in-offcanvas",
 	)
-	cashInOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"cash-in-amount",
-		).Set("value", "")
+	if !cashInOffcanvas.IsNull() && !cashInOffcanvas.IsUndefined() {
+		cashInOffcanvas.Call(
+			"addEventListener",
+			"hidden.bs.offcanvas",
+			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				document.Call(
+					"getElementById",
+					"cash-in-amount",
+				).Set("value", "")
 
-		mainContentClasses := document.Call(
-			"getElementById",
-			"main-cash-in-content",
-		).Get("classList")
-		qrContentClasses := document.Call(
-			"getElementById",
-			"qr-cash-in-content",
-		).Get("classList")
-		qrCashInImage := document.Call(
-			"getElementById",
-			"cash-in-qr",
+				mainContentClasses := document.Call(
+					"getElementById",
+					"main-cash-in-content",
+				).Get("classList")
+				qrContentClasses := document.Call(
+					"getElementById",
+					"qr-cash-in-content",
+				).Get("classList")
+				qrCashInImage := document.Call(
+					"getElementById",
+					"cash-in-qr",
+				)
+
+				mainContentClasses.Call("remove", "d-none")
+				mainContentClasses.Call("add", "d-block")
+
+				qrContentClasses.Call("remove", "d-block")
+				qrContentClasses.Call("add", "d-none")
+
+				qrCashInImage.Set("src", "")
+				return nil
+			}),
 		)
-
-		mainContentClasses.Call("remove", "d-none")
-		mainContentClasses.Call("add", "d-block")
-
-		qrContentClasses.Call("remove", "d-block")
-		qrContentClasses.Call("add", "d-none")
-
-		qrCashInImage.Set("src", "")
-		return nil
-	})
+	}
 
 	cashOutOffcanvas := document.Call(
 		"getElementById",
 		"cash-out-offcanvas",
 	)
-	cashOutOffcanvasCloseCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		document.Call(
-			"getElementById",
-			"cash-out-amount",
-		).Set("value", "")
+	if !cashOutOffcanvas.IsNull() && !cashOutOffcanvas.IsUndefined() {
+		cashOutOffcanvas.Call(
+			"addEventListener",
+			"hidden.bs.offcanvas",
+			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				document.Call(
+					"getElementById",
+					"cash-out-amount",
+				).Set("value", "")
 
-		mainContentClasses := document.Call(
-			"getElementById",
-			"main-cash-out-content",
-		).Get("classList")
-		qrContentClasses := document.Call(
-			"getElementById",
-			"qr-cash-out-content",
-		).Get("classList")
-		qrCashInImage := document.Call(
-			"getElementById",
-			"cash-out-qr",
+				mainContentClasses := document.Call(
+					"getElementById",
+					"main-cash-out-content",
+				).Get("classList")
+				qrContentClasses := document.Call(
+					"getElementById",
+					"qr-cash-out-content",
+				).Get("classList")
+				qrCashInImage := document.Call(
+					"getElementById",
+					"cash-out-qr",
+				)
+
+				mainContentClasses.Call("remove", "d-none")
+				mainContentClasses.Call("add", "d-block")
+
+				qrContentClasses.Call("remove", "d-block")
+				qrContentClasses.Call("add", "d-none")
+
+				qrCashInImage.Set("src", "")
+				return nil
+			}),
 		)
-
-		mainContentClasses.Call("remove", "d-none")
-		mainContentClasses.Call("add", "d-block")
-
-		qrContentClasses.Call("remove", "d-block")
-		qrContentClasses.Call("add", "d-none")
-
-		qrCashInImage.Set("src", "")
-		return nil
-	})
-
-	cashInOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		cashInOffcanvasCloseCallback,
-	)
-	cashOutOffcanvas.Call(
-		"addEventListener",
-		"hidden.bs.offcanvas",
-		cashOutOffcanvasCloseCallback,
-	)
+	}
 }
