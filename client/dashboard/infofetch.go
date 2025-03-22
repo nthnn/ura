@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"html"
 	"sort"
 	"syscall/js"
 	"time"
@@ -36,6 +36,7 @@ type Response struct {
 }
 
 var previousHash string
+var downloadCallback js.Func
 
 func renderTransaction(id string, transaction Transaction) {
 	htmlContents := `
@@ -58,31 +59,30 @@ func renderTransaction(id string, transaction Transaction) {
 		formattedTimestamp = parsedTime.Format("02/01/2006 15:04:05 MST")
 	}
 
-	js.Global().Get("document").Call(
+	tbody := js.Global().Get("document").Call(
 		"getElementById",
 		id,
-	).Call(
-		"insertAdjacentHTML",
-		"beforeend",
-		fmt.Sprintf(
-			htmlContents,
-			capitalizeFirst(transaction.Category),
-			formattedTimestamp,
-			transaction.Amount,
-			transaction.TransactionID,
-			transaction.TransactionID[:12],
-			status,
-		),
 	)
-}
+	if !tbody.IsNull() && !tbody.IsUndefined() {
+		tidDisplay := transaction.TransactionID
+		if len(tidDisplay) > 12 {
+			tidDisplay = tidDisplay[:12]
+		}
 
-func parseJSON(data []byte) Response {
-	var resp Response
-	if err := json.Unmarshal(data, &resp); err != nil {
-		log.Fatalf("Error parsing JSON: %v", err)
+		tbody.Call(
+			"insertAdjacentHTML",
+			"beforeend",
+			fmt.Sprintf(
+				htmlContents,
+				html.EscapeString(capitalizeFirst(transaction.Category)),
+				formattedTimestamp,
+				transaction.Amount,
+				html.EscapeString(transaction.TransactionID),
+				html.EscapeString(tidDisplay),
+				status,
+			),
+		)
 	}
-
-	return resp
 }
 
 func fetchInformation() (Response, string, error) {
@@ -119,29 +119,61 @@ func loadInitialInformation() {
 		username := data.User.Username
 		previousHash = hash
 
-		document.Call(
-			"getElementById",
-			"card-holder",
-		).Set("innerHTML", username)
-
-		document.Call(
-			"getElementById",
-			"card-identification",
-		).Set("innerHTML", data.User.Identifier)
-
-		document.Call(
+		overviewUsername := document.Call(
 			"getElementById",
 			"overview-username",
-		).Set("innerHTML", username)
-
-		document.Call(
+		)
+		cardHolder := document.Call(
+			"getElementById",
+			"card-holder",
+		)
+		identifier := document.Call(
+			"getElementById",
+			"card-identification",
+		)
+		creditAmount := document.Call(
 			"getElementById",
 			"credit-amount",
-		).Set("innerHTML", numberWithCommas(data.User.BalanceUra))
+		)
+
+		if !overviewUsername.IsNull() && !overviewUsername.IsUndefined() {
+			overviewUsername.Set(
+				"innerHTML",
+				html.EscapeString(username),
+			)
+		}
+
+		if !cardHolder.IsNull() && !cardHolder.IsUndefined() {
+			cardHolder.Set(
+				"innerHTML",
+				html.EscapeString(username),
+			)
+		}
+
+		if !identifier.IsNull() && !identifier.IsUndefined() {
+			identifier.Set(
+				"innerHTML",
+				html.EscapeString(data.User.Identifier),
+			)
+		}
+
+		if !creditAmount.IsNull() && !creditAmount.IsUndefined() {
+			creditAmount.Set(
+				"innerHTML",
+				html.EscapeString(numberWithCommas(data.User.BalanceUra)),
+			)
+		}
 
 		sort.Slice(data.Transactions, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, data.Transactions[i].CreatedAt)
-			t2, _ := time.Parse(time.RFC3339, data.Transactions[j].CreatedAt)
+			t1, err := time.Parse(time.RFC3339, data.Transactions[i].CreatedAt)
+			if err != nil {
+				return false
+			}
+
+			t2, err := time.Parse(time.RFC3339, data.Transactions[j].CreatedAt)
+			if err != nil {
+				return false
+			}
 
 			return t1.After(t2)
 		})
@@ -150,10 +182,19 @@ func loadInitialInformation() {
 			"getElementById",
 			"transaction-table",
 		).Get("classList")
+
+		if transactionTable.IsNull() || transactionTable.IsUndefined() {
+			return
+		}
+
 		noTransactionTable := document.Call(
 			"getElementById",
 			"no-transactions",
 		).Get("classList")
+
+		if noTransactionTable.IsNull() || noTransactionTable.IsUndefined() {
+			return
+		}
 
 		if len(data.Transactions) != 0 {
 			transactionTable.Call("remove", "d-none")
@@ -162,26 +203,40 @@ func loadInitialInformation() {
 			noTransactionTable.Call("remove", "d-block")
 			noTransactionTable.Call("add", "d-none")
 
-			document.Call(
+			transactions := document.Call(
 				"getElementById",
 				"transactions",
-			).Set("innerHTML", "")
+			)
+
+			if !transactions.IsNull() && !transactions.IsUndefined() {
+				transactions.Set("innerHTML", "")
+			}
 
 			for _, transaction := range data.Transactions {
 				renderTransaction("transactions", transaction)
 			}
 
-			document.Call(
+			downloadBtn := document.Call(
 				"getElementById",
 				"download-transaction-btn",
-			).Call(
-				"addEventListener",
-				"click",
-				js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			)
+			if !downloadBtn.IsNull() && !downloadBtn.IsUndefined() {
+				if !downloadCallback.IsNull() && !downloadCallback.IsUndefined() {
+					downloadBtn.Call("removeEventListener", "click", downloadCallback)
+					downloadCallback.Release()
+				}
+
+				downloadCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 					generateTransactionPDF(data.Transactions)
 					return nil
-				}),
-			)
+				})
+
+				downloadBtn.Call(
+					"addEventListener",
+					"click",
+					downloadCallback,
+				)
+			}
 		} else {
 			transactionTable.Call("remove", "d-block")
 			transactionTable.Call("add", "d-none")
