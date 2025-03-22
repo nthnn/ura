@@ -3,7 +3,10 @@
 
 package main
 
-import "syscall/js"
+import (
+	"html"
+	"syscall/js"
+)
 
 var document = js.Global().Get("document")
 
@@ -72,6 +75,9 @@ func disableContextPopup() {
 
 func disableTextSelection() {
 	style := document.Get("body").Get("style")
+	if style.IsUndefined() || style.IsNull() {
+		return
+	}
 
 	style.Set("userSelect", "none")
 	style.Set("-webkit-user-select", "none")
@@ -85,9 +91,13 @@ func showError(errorId string, message string) {
 		errorId,
 	)
 
+	if errorText.IsUndefined() || errorText.IsNull() {
+		return
+	}
+
 	errorText.Get("classList").Call("remove", "d-none")
 	errorText.Get("classList").Call("add", "d-block")
-	errorText.Set("innerHTML", message)
+	errorText.Set("innerHTML", html.EscapeString(message))
 
 	var hideAfter2Secs js.Func
 	hideAfter2Secs = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -110,6 +120,10 @@ func hideError(errorId string) {
 		errorId,
 	)
 
+	if errorText.IsUndefined() || errorText.IsNull() {
+		return
+	}
+
 	errorText.Get("classList").Call("remove", "d-block")
 	errorText.Get("classList").Call("add", "d-none")
 	errorText.Set("innerHTML", "")
@@ -120,10 +134,19 @@ func showLoading(name string) {
 		"getElementById",
 		name+"-text",
 	)
+
+	if text.IsUndefined() || text.IsNull() {
+		return
+	}
+
 	loading := js.Global().Get("document").Call(
 		"getElementById",
 		name+"-loading",
 	)
+
+	if loading.IsUndefined() || loading.IsNull() {
+		return
+	}
 
 	text.Get("classList").Call("remove", "d-block")
 	text.Get("classList").Call("add", "d-none")
@@ -137,10 +160,19 @@ func hideLoading(name string) {
 		"getElementById",
 		name+"-text",
 	)
+
+	if text.IsUndefined() || text.IsNull() {
+		return
+	}
+
 	loading := js.Global().Get("document").Call(
 		"getElementById",
 		name+"-loading",
 	)
+
+	if loading.IsUndefined() || loading.IsNull() {
+		return
+	}
 
 	text.Get("classList").Call("remove", "d-none")
 	text.Get("classList").Call("add", "d-block")
@@ -150,24 +182,38 @@ func hideLoading(name string) {
 }
 
 func showActualContent() {
+	var callback js.Func
+	callback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer callback.Release()
+
+		loadingContent := js.Global().Get("document").Call(
+			"getElementById",
+			"loading-content",
+		)
+
+		if loadingContent.IsUndefined() || loadingContent.IsNull() {
+			return nil
+		}
+
+		actualContent := js.Global().Get("document").Call(
+			"getElementById",
+			"actual-content",
+		)
+
+		if actualContent.IsUndefined() || actualContent.IsNull() {
+			return nil
+		}
+
+		loadingContent.Get("classList").Call("add", "d-none")
+		actualContent.Get("classList").Call("remove", "d-none")
+		actualContent.Get("classList").Call("add", "d-block")
+
+		return nil
+	})
+
 	js.Global().Call(
 		"setTimeout",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			loadingContent := js.Global().Get("document").Call(
-				"getElementById",
-				"loading-content",
-			)
-			actualContent := js.Global().Get("document").Call(
-				"getElementById",
-				"actual-content",
-			)
-
-			loadingContent.Get("classList").Call("add", "d-none")
-			actualContent.Get("classList").Call("remove", "d-none")
-			actualContent.Get("classList").Call("add", "d-block")
-
-			return nil
-		}),
+		callback,
 		3000,
 	)
 }
