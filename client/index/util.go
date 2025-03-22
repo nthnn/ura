@@ -4,6 +4,7 @@
 package main
 
 import (
+	"net/url"
 	"syscall/js"
 	"unicode"
 	"unicode/utf8"
@@ -18,9 +19,17 @@ func capitalizeFirst(s string) string {
 	return string(unicode.ToUpper(r)) + s[size:]
 }
 
-func redirectTo(url string) {
-	js.Global().Get("window").Get("location").Set(
-		"href",
-		url,
-	)
+func redirectTo(link string) {
+	_, err := url.ParseRequestURI(link)
+	if err != nil {
+		return
+	}
+
+	location := js.Global().Get("window").Get("location")
+	if !location.IsNull() && !location.IsUndefined() {
+		location.Set(
+			"href",
+			link,
+		)
+	}
 }
