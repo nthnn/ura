@@ -13,7 +13,7 @@ func IsValidSHA512(hash string) bool {
 }
 
 func ValidateUsername(username string) bool {
-	return usernameRegex.MatchString(username)
+	return len(username) > 6 && usernameRegex.MatchString(username)
 }
 
 func ValidateEmail(email string) bool {
