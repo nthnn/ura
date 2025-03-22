@@ -8,6 +8,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"syscall/js"
@@ -18,11 +19,19 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-func redirectTo(url string) {
-	js.Global().Get("window").Get("location").Set(
-		"href",
-		url,
-	)
+func redirectTo(link string) {
+	_, err := url.ParseRequestURI(link)
+	if err != nil {
+		return
+	}
+
+	location := js.Global().Get("window").Get("location")
+	if !location.IsNull() && !location.IsUndefined() {
+		location.Set(
+			"href",
+			link,
+		)
+	}
 }
 
 func toSHA512(data string) string {
@@ -63,22 +72,31 @@ func capitalizeFirst(s string) string {
 }
 
 func generateTransactionPDF(transactions []Transaction) {
-	username := document.Call(
+	usernameObject := document.Call(
 		"getElementById",
 		"card-holder",
-	).Get("innerHTML").String()
+	)
 
+	if usernameObject.IsNull() || usernameObject.IsUndefined() {
+		return
+	}
+
+	username := usernameObject.Get("innerHTML").String()
 	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(10, 10, 10)
-
 	pageCount := 1
+
+	pdf.SetMargins(10, 10, 10)
 	pdf.SetFooterFunc(func() {
 		pdf.SetY(-15)
 		pdf.SetFont("Helvetica", "I", 8)
 		now := time.Now().Format("02/01/2006 15:04:05 MST")
 		pdf.CellFormat(
 			0, 10,
-			"Generated on "+now+". Page "+strconv.Itoa(pageCount)+".", "", 0, "C", false, 0, "")
+			"Generated on "+now+". Page "+strconv.Itoa(pageCount)+".",
+			"", 0,
+			"C", false,
+			0, "",
+		)
 	})
 	pdf.AddPage()
 
@@ -188,8 +206,13 @@ func generateTransactionPDF(transactions []Transaction) {
 		return
 	}
 
+	jsUint8Array := js.Global().Get("Uint8Array")
+	if jsUint8Array.IsNull() || jsUint8Array.IsUndefined() {
+		return
+	}
+
 	data := buf.Bytes()
-	uint8Array := js.Global().Get("Uint8Array").New(len(data))
+	uint8Array := jsUint8Array.New(len(data))
 	js.CopyBytesToJS(uint8Array, data)
 
 	blob := js.Global().Get("Blob").New(
