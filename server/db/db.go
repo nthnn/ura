@@ -6,8 +6,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func Initialize() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "ura.s3db?_foreign_keys=on")
+func Initialize(filePath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", filePath+"?_foreign_keys=on")
 	if err != nil {
 		return nil, err
 	}
