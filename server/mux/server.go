@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nthnn/ura/handler"
@@ -105,7 +106,7 @@ func RootDirectory(baseDir, folderName string) {
 		return
 	}
 
-	if !filepath.HasPrefix(absPath, baseAbs) {
+	if !strings.HasPrefix(absPath, baseAbs) {
 		logger.Error("Attempted directory traversal in static file serving: %s", folderName)
 		return
 	}
