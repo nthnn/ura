@@ -232,7 +232,12 @@ func generateQRCode(id string, data string) error {
 	base64Img := base64.StdEncoding.EncodeToString(buf.Bytes())
 	dataURI := "data:image/png;base64," + base64Img
 
-	document.Call("getElementById", id).Set("src", dataURI)
+	img := document.Call("getElementById", id)
+	if img.IsNull() || img.IsUndefined() {
+		return errors.New("cannot render image to DOM")
+	}
+
+	img.Set("src", dataURI)
 	return nil
 }
 
@@ -293,23 +298,32 @@ func installOffcanvasListeners() {
 			"addEventListener",
 			"hidden.bs.offcanvas",
 			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				document.Call(
+				cashInAmount := document.Call(
 					"getElementById",
 					"cash-in-amount",
-				).Set("value", "")
+				)
 
 				mainContentClasses := document.Call(
 					"getElementById",
 					"main-cash-in-content",
 				).Get("classList")
+
 				qrContentClasses := document.Call(
 					"getElementById",
 					"qr-cash-in-content",
 				).Get("classList")
+
 				qrCashInImage := document.Call(
 					"getElementById",
 					"cash-in-qr",
 				)
+
+				if cashInAmount.IsNull() || cashInAmount.IsUndefined() ||
+					mainContentClasses.IsNull() || mainContentClasses.IsUndefined() ||
+					qrContentClasses.IsNull() || qrContentClasses.IsUndefined() ||
+					qrCashInImage.IsNull() || qrCashInImage.IsUndefined() {
+					return nil
+				}
 
 				mainContentClasses.Call("remove", "d-none")
 				mainContentClasses.Call("add", "d-block")
@@ -318,6 +332,8 @@ func installOffcanvasListeners() {
 				qrContentClasses.Call("add", "d-none")
 
 				qrCashInImage.Set("src", "")
+				cashInAmount.Set("value", "")
+
 				return nil
 			}),
 		)
@@ -332,23 +348,32 @@ func installOffcanvasListeners() {
 			"addEventListener",
 			"hidden.bs.offcanvas",
 			js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				document.Call(
+				cashOutAmount := document.Call(
 					"getElementById",
 					"cash-out-amount",
-				).Set("value", "")
+				)
 
 				mainContentClasses := document.Call(
 					"getElementById",
 					"main-cash-out-content",
 				).Get("classList")
+
 				qrContentClasses := document.Call(
 					"getElementById",
 					"qr-cash-out-content",
 				).Get("classList")
+
 				qrCashInImage := document.Call(
 					"getElementById",
 					"cash-out-qr",
 				)
+
+				if cashOutAmount.IsNull() || cashOutAmount.IsUndefined() ||
+					mainContentClasses.IsNull() || mainContentClasses.IsUndefined() ||
+					qrContentClasses.IsNull() || qrContentClasses.IsUndefined() ||
+					qrCashInImage.IsNull() || qrCashInImage.IsUndefined() {
+					return nil
+				}
 
 				mainContentClasses.Call("remove", "d-none")
 				mainContentClasses.Call("add", "d-block")
@@ -357,6 +382,8 @@ func installOffcanvasListeners() {
 				qrContentClasses.Call("add", "d-none")
 
 				qrCashInImage.Set("src", "")
+				cashOutAmount.Set("value", "")
+
 				return nil
 			}),
 		)

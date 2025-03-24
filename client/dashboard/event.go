@@ -140,6 +140,14 @@ func installButtonActions() {
 		"cash-out-btn",
 	)
 
+	if securityCode.IsNull() || securityCode.IsUndefined() ||
+		showSecurityCodeButton.IsNull() || showSecurityCodeButton.IsUndefined() ||
+		hideSecurityCodeButton.IsNull() || hideSecurityCodeButton.IsUndefined() ||
+		cashInButton.IsNull() || cashInButton.IsUndefined() ||
+		cashOutButton.IsNull() || cashOutButton.IsUndefined() {
+		return
+	}
+
 	disableSelect := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		args[0].Call("preventDefault")
 		return nil
@@ -217,6 +225,7 @@ func installButtonActions() {
 			return nil
 		}),
 	)
+
 	cashOutButton.Call(
 		"addEventListener",
 		"click",
