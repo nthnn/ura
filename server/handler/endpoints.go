@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	timeoutMinute time.Duration = 60
+	timeoutMinute time.Duration = 6
 
 	errMethodNotAllowed                   = "Method Not Allowed"
 	errInvalidRequest                     = "Invalid request body"
